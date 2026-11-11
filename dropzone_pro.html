@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="th" class="h-full bg-slate-950">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Khuang Pao Secure Ingestion Hub - อบต.ข่วงเปา</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Sarabun', sans-serif; }
+        .glass-card { background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(12px); border: 1px solid rgba(56, 189, 248, 0.2); }
+        .cyber-glow { box-shadow: 0 0 25px rgba(56, 189, 248, 0.15); }
+    </style>
+</head>
+<body class="h-full text-slate-100 flex items-center justify-center p-4">
+
+    <div class="max-w-2xl w-full glass-card rounded-3xl p-8 cyber-glow shadow-2xl relative overflow-hidden">
+        
+        <!-- ================= 1. หน้าจอ LOGIN (ยืนยันตัวตนจากฐานข้อมูล) ================= -->
+        <div id="loginSection" class="space-y-6">
+            <div class="flex items-center space-x-4 border-b border-slate-800 pb-4">
+                <img src="KPLOGO.jpg" alt="ตรา อบต.ข่วงเปา" class="w-12 h-12 rounded-full border-2 border-sky-500 object-cover bg-white p-0.5">
+                <div>
+                    <h3 class="text-xl font-bold text-sky-400">Dropzone</h3>
+                    <p class="text-xs text-slate-400">รังผึ้งอัตโนมัติ / อบต.ข่วงเปา</p>
+                </div>
+            </div>
+
+            <div class="space-y-4 text-xs">
+                <div>
+                    <label class="text-slate-300 font-semibold block mb-1">1. เลือกสังกัดกอง / สำนัก:</label>
+                    <select id="selectDept" onchange="populateStaffDropdown()" class="w-full px-4 py-3 bg-slate-900 text-white rounded-xl border border-slate-700 focus:border-sky-500 focus:outline-none font-medium cursor-pointer">
+                        <option value="">-- กรุณาเลือกสังกัดกอง --</option>
+                        <option value="สำนักปลัด">สำนักปลัด</option>
+                        <option value="กองคลัง">กองคลัง</option>
+                        <option value="กองช่าง">กองช่าง</option>
+                        <option value="กองสวัสดิการสังคม">กองสวัสดิการสังคม</option>
+                        <option value="กองสาธารณสุขและสิ่งแวดล้อม">กองสาธารณสุขและสิ่งแวดล้อม</option>
+                        <option value="กองการศึกษา ศาสนาและวัฒนธรรม">กองการศึกษา ศาสนาและวัฒนธรรม</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="text-slate-300 font-semibold block mb-1">2. เลือกรายชื่อเจ้าหน้าที่ผู้ส่งเอกสาร:</label>
+                    <select id="selectStaff" class="w-full px-4 py-3 bg-slate-900 text-white rounded-xl border border-slate-700 focus:border-sky-500 focus:outline-none font-medium cursor-pointer">
+                        <option value="">-- กรุณาเลือกชื่อ-นามสกุล --</option>
+                    </select>
+                </div>
+            </div>
+
+            <button onclick="handleLogin()" class="w-full py-3.5 bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white font-bold text-sm rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer">
+                <i class="fa-solid fa-fingerprint text-base"></i>
+                <span>เข้าสู่ระบบเซสชันความปลอดภัย</span>
+            </button>
+        </div>
+
+        <!-- ================= 2. หน้าจอ HUB เลือกประเภทการใช้งาน (Service Hub) ================= -->
+        <div id="serviceHubSection" class="hidden space-y-6">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-4">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-sky-500/20 text-sky-400 flex items-center justify-center border border-sky-500/30 font-bold">
+                        <i class="fa-solid fa-network-wired"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold text-white" id="userDisplayInfo">ยินดีต้อนรับ, เจ้าหน้าที่</h3>
+                        <p class="text-[11px] text-emerald-400"><span class="w-2 h-2 rounded-full bg-emerald-500 inline-block mr-1"></span>สถานะ: เชื่อมต่อเซสชันปลอดภัยแล้ว</p>
+                    </div>
+                </div>
+                <button onclick="handleLogout()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs rounded-lg font-medium transition cursor-pointer">
+                    <i class="fa-solid fa-right-from-bracket mr-1"></i> ออกจากระบบ
+                </button>
+            </div>
+
+            <div>
+                <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">📂 กรุณาเลือกประเภทบริการ / หมวดหมู่เอกสารที่ต้องการส่ง:</h4>
+                <div class="grid grid-cols-2 gap-3">
+                    <button onclick="selectService('งบประมาณ', 'งบประมาณ')" class="p-4 bg-slate-900 hover:bg-sky-950/60 border border-slate-800 hover:border-sky-500 rounded-2xl transition text-left group cursor-pointer">
+                        <div class="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center mb-2 group-hover:scale-110 transition">
+                            <i class="fa-solid fa-wallet text-sm"></i>
+                        </div>
+                        <div class="font-bold text-sm text-white">งบประมาณ</div>
+                        <div class="text-[11px] text-slate-400 mt-0.5">โอนงบ, ตั้งจ่าย, รายงานรายจ่าย</div>
+                    </button>
+
+                    <button onclick="selectService('พัสดุ', 'พัสดุ')" class="p-4 bg-slate-900 hover:bg-purple-950/60 border border-slate-800 hover:border-purple-500 rounded-2xl transition text-left group cursor-pointer">
+                        <div class="w-9 h-9 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center mb-2 group-hover:scale-110 transition">
+                            <i class="fa-solid fa-boxes-stacked text-sm"></i>
+                        </div>
+                        <div class="font-bold text-sm text-white">พัสดุ & จัดซื้อจัดจ้าง</div>
+                        <div class="text-[11px] text-slate-400 mt-0.5">จัดซื้อ, จัดจ้าง, ทะเบียนทรัพย์สิน</div>
+                    </button>
+
+                    <button onclick="selectService('ขออนุญาตใช้รถยนต์', 'คำขออนุญาต')" class="p-4 bg-slate-900 hover:bg-amber-950/60 border border-slate-800 hover:border-amber-500 rounded-2xl transition text-left group cursor-pointer">
+                        <div class="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center mb-2 group-hover:scale-110 transition">
+                            <i class="fa-solid fa-car text-sm"></i>
+                        </div>
+                        <div class="font-bold text-sm text-white">ขออนุญาตใช้รถยนต์</div>
+                        <div class="text-[11px] text-slate-400 mt-0.5">ขอใช้รถส่วนกลาง, บันทึกการเดินทาง</div>
+                    </button>
+
+                    <button onclick="selectService('งานสารบรรณทั่วไป', 'โครงการ')" class="p-4 bg-slate-900 hover:bg-indigo-950/60 border border-slate-800 hover:border-indigo-500 rounded-2xl transition text-left group cursor-pointer">
+                        <div class="w-9 h-9 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center mb-2 group-hover:scale-110 transition">
+                            <i class="fa-solid fa-file-lines text-sm"></i>
+                        </div>
+                        <div class="font-bold text-sm text-white">สารบรรณ & โครงการ</div>
+                        <div class="text-[11px] text-slate-400 mt-0.5">แผนพัฒนา, คำสั่ง, รายงานการประชุม</div>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= 3. หน้าจอ DROPZONE & AI GUARDRAIL (หลังจากเลือกบริการ) ================= -->
+        <div id="dropzoneSection" class="hidden space-y-5">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <button onclick="backToServiceHub()" class="text-xs text-sky-400 hover:text-sky-300 font-semibold flex items-center gap-1 cursor-pointer">
+                    <i class="fa-solid fa-arrow-left"></i> กลับไปเลือกหมวดหมู่บริการ
+                </button>
+                <span id="activeServiceBadge" class="px-3 py-1 bg-sky-500/20 text-sky-300 border border-sky-500/30 rounded-full text-xs font-bold">หมวดหมู่: งบประมาณ</span>
+            </div>
+
+            <!-- Drop Box Area -->
+            <div id="drop-zone" class="border-2 border-dashed border-slate-700 hover:border-sky-500 rounded-2xl p-6 text-center bg-slate-900/50 transition cursor-pointer relative">
+                <input type="file" id="fileInput" onchange="handleFileSelect(event)" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full">
+                <div class="w-12 h-12 rounded-2xl bg-sky-500/10 text-sky-400 mx-auto flex items-center justify-center text-xl mb-2 shadow-sm border border-sky-500/20">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                </div>
+                <p class="text-sm font-bold text-slate-200">ลากไฟล์เอกสารมาวางที่นี่ หรือคลิกเพื่อเลือกไฟล์</p>
+                <p class="text-xs text-slate-400 mt-1">ระบบจะตรวจสอบความปลอดภัย PDPA & AI Guardrail อัตโนมัติทันที</p>
+            </div>
+
+            <!-- ปุ่มจำลองการทดสอบ 3 กรณี (เพื่อความสะดวกในการเดโม) -->
+            <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800 space-y-2">
+                <p class="text-[11px] text-slate-400 font-bold uppercase tracking-wider">🛠️ ปุ่มจำลองสถานการณ์ทดสอบระบบ:</p>
+                <div class="grid grid-cols-3 gap-2">
+                    <button onclick="runTest('bad_pii')" class="bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 text-[11px] py-1.5 px-2 rounded-lg font-semibold transition text-center cursor-pointer">
+                        🚨 ทดสอบ: ติด PII
+                    </button>
+                    <button onclick="runTest('bad_category')" class="bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-[11px] py-1.5 px-2 rounded-lg font-semibold transition text-center cursor-pointer">
+                        ⚠️ ทดสอบ: ผิดหมวด
+                    </button>
+                    <button onclick="runTest('good_doc')" class="bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 text-[11px] py-1.5 px-2 rounded-lg font-semibold transition text-center cursor-pointer">
+                        ✅ ทดสอบ: ผ่านเกณฑ์
+                    </button>
+                </div>
+            </div>
+
+            <!-- Feedback Area (แสดงผลลัพธ์) -->
+            <div id="feedback-box" class="hidden p-4 rounded-xl text-xs font-medium border"></div>
+        </div>
+
+        <!-- Security Guardrail Notice -->
+        <div class="mt-6 pt-4 border-t border-slate-800 flex justify-between items-center text-[11px] text-slate-400">
+            <span>🛡️ อบต.ข่วงเปา Secure Guardrail v2.0</span>
+            <span>Powered by Mingpop Seechaba & BAAS</span>
+        </div>
+
+    </div>
+
+    <!-- JavaScript สำหรับระบบ Login, Service Hub และ Advanced Engine -->
+    <script>
+        // ข้อมูลบุคลากรจำลองอ้างอิงจาก personal_mixed.json
+        const staffDirectory = {
+            "สำนักปลัด": [
+                "นางจิตรลดา นาคะพันธ์ุ (หัวหน้าสำนักปลัด)",
+                "นายสุวัชญ์ศิษฎ์ พุทธเดชากุล (นิติกรชำนาญการ)",
+                "นางสาวศรีพูล อุปนันท์ (นักทรัพยากรบุคคลชำนาญการ)",
+                "นางสาววีรินทร์ภัทร แสงพารารัตน์ (นักวิเคราะห์นโยบายและแผนชำนาญการ)",
+                "นางสาวธัญวรัชญ์ เชี่ยวเจริญโชติ (เจ้าพนักงานธุรการชำนาญงาน)"
+            ],
+            "กองคลัง": [
+                "นางอุไรวรรณ เครือฟู (ผู้อำนวยการกองคลัง)",
+                "นายบุญฤทธิ์ ไชยยา (นักวิชาการจัดเก็บรายได้)",
+                "น.ส.นุศรา ปัญญาเหล็ก (นักวิชาการการเงินและบัญชี)",
+                "นางสมพร ศรีวิทะ (หัวหน้ากลุ่มพัสดุและทรัพย์สิน)"
+            ],
+            "กองช่าง": [
+                "นายพันธ์ศักดิ์ กิ่งสวัสดิ์ (นายช่างโยธาอาวุโส)",
+                "นายภิรุณ ภักดี (นายช่างโยธาอาวุโส)",
+                "นางสาวอรอนงค์ ชัยโย (เจ้าหน้าที่ธุรการ)"
+            ],
+            "กองสวัสดิการสังคม": [
+                "นายณัฐพงษ์ คำแดง (ผู้อำนวยการกองสวัสดิการสังคม)",
+                "นายภูมิภัทร ชัยยะเลิศ (นักพัฒนาชุมชนปฏิบัติการ)",
+                "นางสาวปทิตตา แสดสวนสี (เจ้าพนักงานพัฒนาชุมชนชำนาญงาน)"
+            ],
+            "กองสาธารณสุขและสิ่งแวดล้อม": [
+                "นางสาวจีรัณภรณ์ กันธิยะวรัชญ์ (นักวิชาการสาธารณสุขปฏิบัติการ)",
+                "นางสาวหทัยรัตน์ มณีวรรณ์ (เจ้าพนักงานธุรการปฏิบัติงาน)"
+            ],
+            "กองการศึกษา ศาสนาและวัฒนธรรม": [
+                "นางอริสรา สันติพงษ์ (นักวิชาการศึกษาชำนาญการ)",
+                "นางเกศณา กฤตภาสเดช (ครูชำนาญการ หัวหน้าศูนย์)"
+            ]
+        };
+
+        let currentUser = { dept: "", name: "", service: "", keyword: "" };
+
+        function populateStaffDropdown() {
+            const dept = document.getElementById('selectDept').value;
+            const staffSelect = document.getElementById('selectStaff');
+            staffSelect.innerHTML = '<option value="">-- กรุณาเลือกชื่อ-นามสกุล --</option>';
+            
+            if (dept && staffDirectory[dept]) {
+                staffDirectory[dept].forEach(staff => {
+                    const opt = document.createElement('option');
+                    opt.value = staff;
+                    opt.text = staff;
+                    staffSelect.appendChild(opt);
+                });
+            }
+        }
+
+        function handleLogin() {
+            const dept = document.getElementById('selectDept').value;
+            const staff = document.getElementById('selectStaff').value;
+
+            if (!dept || !staff) {
+                alert("กรุณาเลือกสังกัดกองและชื่อ-นามสกุลให้ครบถ้วน");
+                return;
+            }
+
+            currentUser.dept = dept;
+            currentUser.name = staff;
+
+            document.getElementById('userDisplayInfo').innerText = `ผู้ใช้งาน: ${staff} (${dept})`;
+            document.getElementById('loginSection').classList.add('hidden');
+            document.getElementById('serviceHubSection').classList.remove('hidden');
+        }
+
+        function handleLogout() {
+            currentUser = { dept: "", name: "", service: "", keyword: "" };
+            document.getElementById('selectDept').value = "";
+            document.getElementById('selectStaff').innerHTML = '<option value="">-- กรุณาเลือกชื่อ-นามสกุล --</option>';
+            document.getElementById('serviceHubSection').classList.add('hidden');
+            document.getElementById('loginSection').classList.remove('hidden');
+        }
+
+        function selectService(serviceName, keyword) {
+            currentUser.service = serviceName;
+            currentUser.keyword = keyword;
+
+            document.getElementById('activeServiceBadge').innerText = `หมวดหมู่บริการ: ${serviceName}`;
+            document.getElementById('serviceHubSection').classList.add('hidden');
+            document.getElementById('dropzoneSection').classList.remove('hidden');
+            document.getElementById('feedback-box').classList.add('hidden');
+        }
+
+        function backToServiceHub() {
+            document.getElementById('dropzoneSection').classList.add('hidden');
+            document.getElementById('serviceHubSection').classList.remove('hidden');
+        }
+
+        // Advanced Pre-drop Sanitizer Engine
+        class AdvancedPreDropSanitizerEngine {
+            constructor() {
+                this.piiPatterns = {
+                    thaiIdCard: /\b\d{1}-\d{4}-\d{5}-\d{2}-\d{1}\b/g,
+                    phoneNumber: /\b0[689]\d{8}\b/g,
+                    email: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g
+                };
+                this.contextKeywords = ["บ้านเลขที่", "ที่อยู่ส่วนตัว", "เงินเดือนส่วนบุคคล", "บัตรประชาชนเลขที่"];
+            }
+
+            async processAndScan(fileName, fileContent, requiredKeyword) {
+                let issues = [];
+                for (let [key, pattern] of Object.entries(this.piiPatterns)) {
+                    if (pattern.test(fileContent)) issues.push(`ข้อมูลส่วนบุคคล [${key}]`);
+                }
+                for (let keyword of this.contextKeywords) {
+                    if (fileContent.includes(keyword)) issues.push(`คำบริบทอ่อนไหว [${keyword}]`);
+                }
+
+                if (issues.length > 0) {
+                    return { status: "REJECTED", reason: `🚨 ละเมิดกฎเหล็ก PDPA: ตรวจพบ ${issues.join(", ")}` };
+                }
+
+                let isValidCategory = fileContent.includes(requiredKeyword) || fileContent.includes("ระเบียบ") || fileContent.includes("ข้อบัญญัติ");
+                if (!isValidCategory) {
+                    return { status: "REJECTED", reason: `⚠️ ปฏิเสธ: เนื้อหาไม่ตรงกับหมวดหมู่ [${currentUser.service}] ของ อบต.ข่วงเปา` };
+                }
+
+                return { status: "APPROVED", reason: `✅ เอกสารสะอาด ปลอดภัย ตรงตามหมวดหมู่ [${currentUser.service}] พร้อมส่งเข้าเซิร์ฟเวอร์ BAAS` };
+            }
+        }
+
+        const engine = new AdvancedPreDropSanitizerEngine();
+
+        async function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                const content = e.target.result;
+                const result = await engine.processAndScan(file.name, content, currentUser.keyword);
+                renderUI(file.name, result);
+            };
+            reader.readAsText(file);
+        }
+
+        async function runTest(type) {
+            let fileName = "";
+            let content = "";
+
+            if (type === 'bad_pii') {
+                fileName = "citizen_leak.txt";
+                content = "ข้อมูลประชาชน นายสมชาย ใจดี เลขบัตรประชาชน 1-5099-00123-45-6 เบอร์โทร 0891234567";
+            } else if (type === 'bad_category') {
+                fileName = "personal_photo.zip";
+                content = "รูปภาพท่องเที่ยวส่วนตัวและเพลงโปรดไปเที่ยวทะเลเชียงใหม่";
+            } else {
+                fileName = `official_${currentUser.keyword}_doc.txt`;
+                content = `เอกสารราชการหมวดหมู่ ${currentUser.service} ประจำปีงบประมาณ พ.ศ. 2570 ของ อบต.ข่วงเปา รายละเอียดโครงการถูกต้องตามระเบียบ`;
+            }
+
+            const result = await engine.processAndScan(fileName, content, currentUser.keyword);
+            renderUI(fileName, result);
+        }
+
+        function renderUI(fileName, result) {
+            const feedbackBox = document.getElementById('feedback-box');
+            feedbackBox.classList.remove('hidden');
+
+            if (result.status === "REJECTED") {
+                feedbackBox.className = "p-4 rounded-xl text-xs font-medium border bg-red-950/40 border-red-800 text-red-300";
+                feedbackBox.innerHTML = `
+                    <p class="font-bold text-sm mb-1">🚨 สถานะ: REJECTED (ถูกบล็อกความปลอดภัย)</p>
+                    <p><b>ไฟล์:</b> ${fileName}</p>
+                    <p class="mt-1">${result.reason}</p>
+                    <p class="mt-2 text-[10px] text-red-400">* ผู้ส่ง: ${currentUser.name} (${currentUser.dept}) - บันทึก Audit Log แล้ว</p>
+                `;
+            } else {
+                feedbackBox.className = "p-4 rounded-xl text-xs font-medium border bg-emerald-950/40 border-emerald-800 text-emerald-300";
+                feedbackBox.innerHTML = `
+                    <p class="font-bold text-sm mb-1">✅ สถานะ: APPROVED (ผ่านเกณฑ์มาตรฐาน)</p>
+                    <p><b>ไฟล์:</b> ${fileName}</p>
+                    <p class="mt-1">${result.reason}</p>
+                    <p class="mt-2 text-[10px] text-emerald-400">* ผู้ส่ง: ${currentUser.name} (${currentUser.dept}) - กำลังส่งข้อมูลเข้าสู่ Semantic Vault ของ BAAS...</p>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

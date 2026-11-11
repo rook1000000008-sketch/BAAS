@@ -1,0 +1,29 @@
+{
+    "projects": {
+        "PRJ-2570-001": {
+            "project_name": "โครงการป้องกันและแก้ไขปัญหายาเสพติด ประจำปี 2570",
+            "department": "สำนักปลัด",
+            "initial_budget": 100000,
+            "current_budget": 150000,
+            "target_group": "200 คน (ขยายจากอำเภอ +100 คน)",
+            "status": "APPROVED",
+            "pinned_by_executive": true,
+            "note": "ขอเพิ่มงบค่าอาหารฝึกอบรม 50,000 บาท ตามหนังสือแจ้งจากอำเภอ",
+            "updated_at": "2026-10-08T13:50:00Z",
+            "attachments": [
+                {
+                    "file_name": "หนังสือขอความร่วมมือจากอำเภอ.pdf",
+                    "file_type": "pdf",
+                    "url": "https://storage.googleapis.com/your-app.appspot.com/docs/letter_district.pdf"
+                }
+            ]
+        }
+    },
+    "executive_notebook_settings": {
+        "pinned_widgets": [
+            "PRJ-2570-001",
+            "URGENT_APPROVALS",
+            "QUICK_COMMANDS"
+        ]
+    }
+}

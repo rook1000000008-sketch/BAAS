@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <title>พิมพ์รายงานงบประมาณประจำแผนงาน</title>
+    <style>
+        /* สไตล์ทั่วไปของหน้าเว็บ */
+        body {
+            font-family: 'Sarabun', sans-serif;
+            background-color: #f5f6fa;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        /* ปุ่มสั่งพิมพ์ */
+        .print-action-bar {
+            text-align: right;
+            margin-bottom: 20px;
+        }
+
+        .btn-print {
+            background-color: #0d9488;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-family: 'Sarabun', sans-serif;
+        }
+
+        .btn-print:hover {
+            background-color: #0f766e;
+        }
+
+        /* ส่วนหัวรายงาน */
+        .report-header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 15px;
+        }
+
+        .report-header h2 {
+            margin: 0;
+            font-size: 22px;
+            color: #1f2937;
+        }
+
+        .report-header p {
+            margin: 5px 0 0;
+            color: #4b5563;
+            font-size: 16px;
+        }
+
+        /* รายการงบประมาณ */
+        .budget-plan-section {
+            margin-bottom: 20px;
+        }
+
+        .plan-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #111827;
+            background-color: #f3f4f6;
+            padding: 10px 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+        }
+
+        .budget-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 15px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .budget-item:last-child {
+            border-bottom: none;
+        }
+
+        .item-info .category-tag {
+            font-size: 12px;
+            background: #e0f2fe;
+            color: #0369a1;
+            padding: 2px 8px;
+            border-radius: 4px;
+            display: inline-block;
+            margin-bottom: 4px;
+        }
+
+        .item-info .project-name {
+            font-size: 15px;
+            color: #374151;
+            font-weight: 500;
+        }
+
+        .item-budget {
+            font-size: 16px;
+            font-weight: bold;
+            color: #059669;
+        }
+
+        /* ==========================================
+           ตั้งค่าสำหรับการพิมพ์ (Print / A4 Setup)
+           ========================================== */
+        @media print {
+            /* กำหนดขนาดหน้ากระดาษเป็น A4 และระยะขอบ */
+            @page {
+                size: A4;
+                margin: 1.5cm;
+            }
+
+            /* ซ่อนส่วนที่ไม่ต้องการให้แสดงบนกระดาษพิมพ์ */
+            header, 
+            nav, 
+            .search-bar, 
+            .print-action-bar, 
+            .sidebar-right,
+            button {
+                display: none !important;
+            }
+
+            /* ปรับแต่ง Container ให้เต็มหน้ากระดาษ A4 */
+            body {
+                background-color: #fff;
+                color: #000;
+                padding: 0;
+                margin: 0;
+            }
+
+            .container {
+                width: 100% !important;
+                max-width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                box-shadow: none !important;
+                border: none !important;
+            }
+
+            /* ปรับสีพื้นหลังให้เหมาะกับการพิมพ์ประหยัดหมึก */
+            .plan-title {
+                background-color: #f3f4f6 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            .item-info .category-tag {
+                background: #e0f2fe !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- ปุ่มสั่งพิมพ์ (จะถูกซ่อนอัตโนมัติเวลาสั่งปริ้น) -->
+        <div class="print-action-bar">
+            <button class="btn-print" onclick="window.print()">
+                🖨️ พิมพ์หน้านี้เป็น PDF / A4
+            </button>
+        </div>
+
+        <!-- ส่วนหัวของรายงาน -->
+        <div class="report-header">
+            <h2>องค์การบริหารส่วนตำบลข่วงเปา - ข้อบัญญัติงบประมาณ 2570</h2>
+            <p>รายงานรายละเอียดงบประมาณรายจ่ายประจำแผนงาน</p>
+        </div>
+
+        <!-- ตัวอย่างข้อมูล: แผนงานการเกษตร -->
+        <div class="budget-plan-section">
+            <div class="plan-title">
+                📌 แผนงานการเกษตร (รวมงบประมาณทั้งสิ้น: 891,820.00 บาท)
+            </div>
+
+            <div class="budget-item">
+                <div class="item-info">
+                    <span class="category-tag">งบบุคลากร (PRJ-2570-252)</span>
+                    <div class="project-name">เงินเดือนข้าราชการ หรือพนักงานส่วนท้องถิ่น</div>
+                </div>
+                <div class="item-budget">305,320.00 บาท</div>
+            </div>
+
+            <div class="budget-item">
+                <div class="item-info">
+                    <span class="category-tag">งบบุคลากร (PRJ-2570-253)</span>
+                    <div class="project-name">ค่าตอบแทนพนักงานจ้าง</div>
+                </div>
+                <div class="item-budget">216,000.00 บาท</div>
+            </div>
+
+            <div class="budget-item">
+                <div class="item-info">
+                    <span class="category-tag">งบบุคลากร (PRJ-2570-254)</span>
+                    <div class="project-name">เงินเพิ่มต่าง ๆ ของพนักงานจ้าง</div>
+                </div>
+                <div class="item-budget">48,000.00 บาท</div>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

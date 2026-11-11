@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="th" class="h-full bg-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BAAS - Modern Budget Hub (Executive Read-Only View)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Firebase SDK (v8 CDN - Read Only) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Prompt', 'sans-serif'],
+                        sarabun: ['Sarabun', 'sans-serif'],
+                    },
+                    colors: {
+                        emerald: {
+                            50: '#ecfdf5',
+                            100: '#d1fae5',
+                            500: '#10b981',
+                            600: '#059669',
+                            700: '#047857',
+                        },
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #059669; }
+        
+        .a4-page {
+            width: 100%;
+            max-width: 820px;
+            min-height: 1080px;
+            background: #ffffff;
+            box-shadow: 0 10px 30px -5px rgba(0,0,0,0.05), 0 1px 3px rgba(0,0,0,0.03);
+            margin: 0 auto 32px auto;
+            padding: 48px;
+            position: relative;
+            border-radius: 16px;
+        }
+
+        /* 🌟 CSS ควบคุมการพิมพ์และการตัดหน้า A4 สมบูรณ์แบบ */
+        @media print {
+            html, body {
+                height: auto !important;
+                max-height: none !important;
+                overflow: visible !important;
+                background: #ffffff !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                width: 100% !important;
+            }
+
+            body > *:not(#rawListModal):not(#auditLogModal):not(#detailModal):not(main) {
+                display: none !important;
+            }
+
+            #rawListModal:not(.hidden),
+            #auditLogModal:not(.hidden) {
+                display: block !important;
+                position: static !important;
+                left: auto !important;
+                top: auto !important;
+                width: 100% !important;
+                height: auto !important;
+                max-height: none !important;
+                overflow: visible !important;
+                background: #ffffff !important;
+                box-shadow: none !important;
+                border: none !important;
+                border-radius: 0 !important;
+            }
+
+            #rawListModal .bg-white,
+            #rawListModal .overflow-y-auto,
+            #auditLogModal .bg-white,
+            #auditLogModal .overflow-y-auto,
+            #rawListContainer, #auditLogContainer,
+            #rawListPrintArea, #auditLogPrintArea {
+                position: static !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                height: auto !important;
+                max-height: none !important;
+                min-height: auto !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #ffffff !important;
+                box-shadow: none !important;
+                border: none !important;
+                border-radius: 0 !important;
+                overflow: visible !important;
+            }
+
+            .print-page-break {
+                page-break-after: always !important;
+                break-after: page !important;
+                margin-bottom: 0 !important;
+                padding-bottom: 0 !important;
+                display: block !important;
+                width: 100% !important;
+            }
+
+            * {
+                box-shadow: none !important;
+                text-shadow: none !important;
+            }
+
+            .no-print { display: none !important; }
+
+            main, #paperTrack {
+                display: block !important;
+                overflow: visible !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                width: 100% !important;
+            }
+
+            .a4-page {
+                box-shadow: none !important;
+                border: none !important;
+                border-radius: 0 !important;
+                margin: 0 auto !important;
+                padding: 0 !important;
+                width: 100% !important;
+                max-width: none !important;
+                min-height: auto !important;
+                page-break-after: always !important;
+                break-after: page !important;
+            }
+
+            table { 
+                width: 100% !important;
+                table-layout: fixed !important;
+                border-collapse: collapse !important;
+                page-break-inside: auto !important; 
+            }
+            tr { page-break-inside: avoid !important; break-inside: avoid !important; }
+            thead { display: table-header-group !important; }
+            th, td { word-wrap: break-word !important; overflow-wrap: break-word !important; }
+
+            @page {
+                size: A4 portrait;
+                margin: 12mm 12mm 12mm 12mm;
+            }
+        }
+    </style>
+</head>
+<body class="h-full text-slate-800 font-sans antialiased overflow-hidden flex flex-col bg-slate-100" onclick="closeContextMenu()">
+
+    <!-- Context Menu (แสดงเฉพาะตัวเลือกดูคำชี้แจงและประวัติ) -->
+    <div id="contextMenu" class="fixed bg-white/95 backdrop-blur-md border border-slate-100 rounded-2xl shadow-2xl z-50 py-2 w-64 hidden text-xs font-sans no-print">
+        <div class="px-4 py-2 border-b border-slate-100 font-bold text-slate-400 text-[10px] flex justify-between items-center">
+            <span id="ctxProjectCode" class="font-mono text-emerald-700">PRJ-2570-000</span>
+            <span class="text-emerald-600 font-semibold"><i class="fa-solid fa-eye"></i> Executive Menu</span>
+        </div>
+        <button onclick="handleCtxAction('VIEW')" class="w-full text-left px-4 py-2.5 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 flex items-center gap-3 font-medium transition-all">
+            <i class="fa-solid fa-file-lines text-emerald-500 text-sm"></i>
+            <span>1. ดูคำชี้แจงงบประมาณ</span>
+        </button>
+        <button onclick="handleCtxAction('PROJECT_HISTORY')" class="w-full text-left px-4 py-2.5 hover:bg-amber-50 text-slate-700 hover:text-amber-700 flex items-center gap-3 font-medium transition-all">
+            <i class="fa-solid fa-clock-rotate-left text-amber-500 text-sm"></i>
+            <span>2. ตรวจสอบประวัติการโอน 📜</span>
+        </button>
+    </div>
+
+    <!-- Header Navigation (คงโครงสร้าง UI เดิม ถอดเฉพาะปุ่มแก้ไข) -->
+    <header class="bg-white/90 backdrop-blur-md border-b border-slate-200/80 shadow-sm z-30 shrink-0 no-print">
+        <div class="max-w-7xl mx-auto px-6 py-2.5 flex items-center justify-between gap-6">
+            <div class="flex items-center gap-3 shrink-0">
+                <img src="KPLOGO.jpg" alt="ตรา อบต.ข่วงเปา" class="w-11 h-11 object-contain drop-shadow-sm rounded-full bg-white p-0.5 border border-slate-200">
+                <div>
+                    <h1 class="font-bold text-base text-slate-900 leading-tight">
+                        องค์การบริหารส่วนตำบลข่วงเปา - ข้อบัญญัติงบประมาณ 2570
+                        <span class="text-xs bg-amber-500 text-slate-900 px-2.5 py-0.5 rounded-full font-bold ml-2 shadow-xs">👁️ โหมดผู้บริหาร (Read-Only)</span>
+                    </h1>
+                    <p class="text-[11px] text-slate-500 font-medium">Executive A4 Continuous Budget Notebook (อำเภอจอมทอง จังหวัดเชียงใหม่)</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2.5 font-mono text-xs">
+                <button onclick="openAuditLogModal()" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-900 font-sans font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5 active:scale-95 shrink-0">
+                    <i class="fa-solid fa-clock-rotate-left"></i> ประวัติการโอนงบ (Audit Log)
+                </button>
+
+                <button onclick="openRawListModal()" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-sans font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5 active:scale-95 shrink-0">
+                    <i class="fa-solid fa-print"></i> พิมพ์ List รายจ่าย
+                </button>
+
+                <span id="dbStatusBadge" class="flex items-center gap-2 bg-amber-50 text-amber-700 px-3 py-1.5 rounded-xl border border-amber-200 font-sans font-medium">
+                    <span class="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
+                    <span>กำลังโหลด...</span>
+                </span>
+            </div>
+        </div>
+
+        <div id="planNavTrack" class="bg-slate-50/90 border-t border-slate-200/60 px-6 py-1.5 overflow-x-auto custom-scrollbar flex items-center gap-2 text-xs"></div>
+        <div id="jobNavTrack" class="bg-slate-100/90 border-t border-slate-200/80 px-6 py-1.5 overflow-x-auto custom-scrollbar flex items-center gap-2 text-xs"></div>
+        <div id="categoryNavTrack" class="bg-slate-200/70 border-t border-slate-200 px-6 py-1.5 overflow-x-auto custom-scrollbar flex items-center gap-2 text-xs"></div>
+        <div id="subTypeNavTrack" class="bg-slate-900 text-slate-100 px-6 py-1.5 overflow-x-auto custom-scrollbar flex items-center gap-2 text-xs">
+            <span class="text-amber-400 font-bold text-[11px] shrink-0 mr-2 flex items-center gap-1.5"><i class="fa-solid fa-bolt text-amber-400"></i> รายจ่ายเจาะจง (4):</span>
+            <button onclick="setSubTypeFilter('all')" id="subTypeBtn-all" class="px-2.5 py-0.5 rounded-lg text-[11px] font-bold bg-amber-500 text-slate-900 shadow-sm transition-all shrink-0">ทั้งหมด</button>
+            <button onclick="setSubTypeFilter('วัสดุ')" id="subTypeBtn-วัสดุ" class="px-2.5 py-0.5 rounded-lg text-[11px] font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all shrink-0">ค่าวัสดุ</button>
+            <button onclick="setSubTypeFilter('จ้างเหมา')" id="subTypeBtn-จ้างเหมา" class="px-2.5 py-0.5 rounded-lg text-[11px] font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all shrink-0">รายจ่ายเพื่อให้ได้มาซึ่งบริการ</button>
+            <button onclick="setSubTypeFilter('เดินทาง')" id="subTypeBtn-เดินทาง" class="px-2.5 py-0.5 rounded-lg text-[11px] font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all shrink-0">ค่าเดินทางไปราชการ</button>
+            <button onclick="setSubTypeFilter('สาธารณูปโภค')" id="subTypeBtn-สาธารณูปโภค" class="px-2.5 py-0.5 rounded-lg text-[11px] font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all shrink-0">ค่าสาธารณูปโภค</button>
+        </div>
+    </header>
+
+    <!-- Main Content Area (ดีไซน์เดิม 100%) -->
+    <div class="flex-1 overflow-hidden flex relative">
+        <main class="flex-1 overflow-y-auto p-6 md:p-10 custom-scrollbar space-y-6" id="paperTrack">
+            <div class="max-w-[820px] mx-auto no-print">
+                <div class="relative shadow-md rounded-2xl bg-white border border-slate-200 p-1">
+                    <input type="text" id="searchInput" onkeyup="filterProjects(this.value)" placeholder="🔍 พิมพ์ค้นหา หรือพิมพ์คำถาม (เช่น ค่าวัสดุ, ค่าจ้างเหมา, ค่าเดินทาง)..." class="w-full pl-11 pr-4 py-3 bg-slate-50 focus:bg-white text-xs md:text-sm rounded-xl text-slate-900 border border-transparent focus:border-emerald-500 focus:outline-none transition-all font-medium">
+                    <i class="fa-solid fa-wand-magic-sparkles absolute left-4 top-4 text-emerald-600 text-sm animate-pulse"></i>
+                </div>
+            </div>
+            <div class="text-center py-24 text-slate-400 font-sans" id="loadingSpinner">
+                <i class="fa-solid fa-circle-notch fa-spin text-4xl text-emerald-600 mb-4"></i>
+                <p class="font-medium text-slate-600">กำลังดึงข้อมูลงบประมาณ...</p>
+            </div>
+        </main>
+
+        <!-- Right Activity Sidebar (คงแถบสรุปยอดและประวัติโอนงบ ถอดเฉพาะปุ่มแก้ไข) -->
+        <aside class="hidden xl:block w-80 p-6 bg-white border-l border-slate-200/80 overflow-y-auto custom-scrollbar shrink-0 space-y-6 no-print">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h3 class="font-bold text-sm text-slate-900 flex items-center gap-2">
+                        <i class="fa-solid fa-chart-pie text-emerald-600"></i>
+                        <span>ภาพรวมงบประมาณ</span>
+                    </h3>
+                    <p class="text-[11px] text-slate-400">อัปเดต Realtime จากการโอนงบ</p>
+                </div>
+            </div>
+
+            <div class="p-4 bg-gradient-to-br from-emerald-600 to-teal-700 rounded-2xl text-white shadow-lg shadow-emerald-600/20 space-y-3">
+                <span class="text-[11px] text-emerald-100 font-medium block">งบประมาณจัดสรรรวม 2570</span>
+                <div class="text-2xl font-bold font-mono" id="summaryTotalBudget">0.00 บาท</div>
+                <div class="pt-2 border-t border-white/20 flex justify-between text-[11px] text-emerald-100">
+                    <span>รายการทั้งหมด:</span>
+                    <span class="font-bold text-white" id="summaryItemCount">0 รายการ</span>
+                </div>
+            </div>
+
+            <div class="space-y-3">
+                <div class="flex items-center justify-between">
+                    <h4 class="font-bold text-xs text-slate-700 flex items-center gap-1.5">
+                        <i class="fa-solid fa-clock-rotate-left text-amber-600"></i> ประวัติการโอนงบถาวร
+                    </h4>
+                    <span class="text-[10px] bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-full" id="transferCountBadge">0 รายการ</span>
+                </div>
+                <div id="pairingsLog" class="space-y-2.5 text-xs"></div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Modals: Audit Log (ศูนย์พิมพ์ประวัติสำหรับผู้บริหาร) -->
+    <div id="auditLogModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl max-w-4xl w-full h-[90vh] flex flex-col shadow-2xl border border-slate-100 font-sans overflow-hidden">
+            <div class="p-4 px-6 border-b border-slate-200 bg-slate-50 flex items-center justify-between shrink-0 no-print">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-2xl bg-amber-500 text-slate-900 flex items-center justify-center font-bold text-sm shadow-md"><i class="fa-solid fa-clock-rotate-left"></i></div>
+                    <div>
+                        <h3 class="font-bold text-slate-900 text-sm">รายงานสรุปประวัติการโอนเงินงบประมาณรายจ่าย (Audit Log Trail)</h3>
+                        <p class="text-[11px] text-slate-500">จำแนกตามลำดับรายการอนุมัติการโอนงบประมาณรายจ่าย</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="triggerPrintWithReset('auditLogModal')" class="px-5 py-2 bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 active:scale-95"><i class="fa-solid fa-print"></i> พิมพ์รายงานสรุปประวัติโอน</button>
+                    <button onclick="closeModal('auditLogModal')" class="text-slate-400 hover:text-slate-600 p-2"><i class="fa-solid fa-xmark text-lg"></i></button>
+                </div>
+            </div>
+            <div class="flex-1 overflow-y-auto p-6 custom-scrollbar bg-slate-200/60" id="auditLogContainer">
+                <div id="auditLogPrintArea" class="bg-white p-8 max-w-[794px] mx-auto font-sarabun text-slate-900 text-xs space-y-4 rounded-none"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: ดูรายละเอียดโครงการ (Read-Only Mode) -->
+    <div id="detailModal" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden no-print">
+        <div class="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-slate-100 space-y-5 font-sans">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div class="flex items-center gap-3">
+                    <img src="KPLOGO.jpg" alt="ตรา อบต." class="w-9 h-9 object-contain">
+                    <div>
+                        <h3 class="font-bold text-slate-900 text-sm" id="modalProjectName">ชื่อโครงการ</h3>
+                        <p class="text-[11px] font-mono text-emerald-600 font-medium" id="modalProjectCode">PRJ-2570-000</p>
+                    </div>
+                </div>
+                <button onclick="closeModal('detailModal')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="space-y-4 text-xs">
+                <div>
+                    <label class="font-bold text-slate-700 block mb-1.5">ชื่อรายการงบประมาณ:</label>
+                    <div id="modalProjectNameDisplay" class="p-3 bg-slate-50 border border-slate-200 rounded-2xl font-sans text-xs text-slate-900 font-bold"></div>
+                </div>
+                <div>
+                    <label class="font-bold text-slate-700 block mb-1.5">สังกัดส่วนราชการ / แผนงาน:</label>
+                    <div id="modalProjectCategory" class="p-3 bg-slate-50 rounded-2xl text-slate-700 font-medium border border-slate-200/80"></div>
+                </div>
+                <div id="modalHistorySection" class="hidden space-y-2">
+                    <label class="font-bold text-amber-700 block"><i class="fa-solid fa-clock-rotate-left"></i> ประวัติการโอนเฉพาะรายการนี้:</label>
+                    <div id="modalHistoryContainer" class="max-h-48 overflow-y-auto custom-scrollbar p-3 bg-amber-50/50 rounded-2xl border border-amber-200/80 space-y-2"></div>
+                </div>
+                <div>
+                    <label class="font-bold text-slate-700 block mb-1.5">คำชี้แจงงบประมาณ:</label>
+                    <div id="modalProjectNoteDisplay" class="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-sarabun text-sm text-slate-800 leading-relaxed min-h-[80px]"></div>
+                </div>
+            </div>
+            <div class="pt-2 flex items-center justify-end">
+                <button onclick="closeModal('detailModal')" class="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-2xl transition-all">ปิดหน้าต่าง</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal ศูนย์สั่งพิมพ์ Print Hub (ดีไซน์เดิม 100%) -->
+    <div id="rawListModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl max-w-4xl w-full h-[90vh] flex flex-col shadow-2xl border border-slate-100 font-sans overflow-hidden">
+            <div class="p-4 px-6 border-b border-slate-200 bg-slate-50 flex items-center justify-between shrink-0 no-print">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-md"><i class="fa-solid fa-print"></i></div>
+                    <div>
+                        <h3 class="font-bold text-slate-900 text-sm">ศูนย์สั่งพิมพ์ List งบประมาณ (Print Hub)</h3>
+                        <p class="text-[11px] text-slate-500">เลือกระบุ แผนงาน / งาน / หมวดงบ เพื่อสร้างรายงานพิมพ์ทันที</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="triggerPrintWithReset('rawListModal')" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 active:scale-95"><i class="fa-solid fa-print"></i> สั่งพิมพ์ทันที</button>
+                    <button onclick="closeModal('rawListModal')" class="text-slate-400 hover:text-slate-600 p-2"><i class="fa-solid fa-xmark text-lg"></i></button>
+                </div>
+            </div>
+            <div class="p-4 bg-slate-100/90 border-b border-slate-200 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs font-sans shrink-0 no-print">
+                <div>
+                    <label class="font-bold text-slate-700 block mb-1">เลือกแผนงาน:</label>
+                    <select id="printSelectPlan" onchange="onPrintFilterChange()" class="w-full p-2 bg-white border border-slate-300 rounded-xl font-medium focus:outline-none focus:border-indigo-500"></select>
+                </div>
+                <div>
+                    <label class="font-bold text-slate-700 block mb-1">เลือกงานย่อย:</label>
+                    <select id="printSelectJob" onchange="updatePrintListTable()" class="w-full p-2 bg-white border border-slate-300 rounded-xl font-medium focus:outline-none focus:border-indigo-500"></select>
+                </div>
+                <div>
+                    <label class="font-bold text-slate-700 block mb-1">เลือกหมวดงบ:</label>
+                    <select id="printSelectCategory" onchange="updatePrintListTable()" class="w-full p-2 bg-white border border-slate-300 rounded-xl font-medium focus:outline-none focus:border-indigo-500"></select>
+                </div>
+            </div>
+            <div class="flex-1 overflow-y-auto p-6 custom-scrollbar bg-slate-200/60" id="rawListContainer">
+                <div id="rawListPrintArea" class="bg-white p-8 max-w-[794px] mx-auto font-sarabun text-slate-900 text-xs space-y-4 rounded-none"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Read-Only Logic -->
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyAEPVlZTTulr5Z5i8ISGeJZ35UVzLtNKR4",
+            authDomain: "baas-70.firebaseapp.com",
+            databaseURL: "https://baas-70-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "baas-70",
+            storageBucket: "baas-70.firebasestorage.app",
+            messagingSenderId: "883237175050",
+            appId: "1:883237175050:web:b1acda977b19b8dae204f3",
+            measurementId: "G-3SX4XECFNX"
+        };
+
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        const planJobMapping = {
+            "แผนงานบริหารงานทั่วไป": ["งานบริหารทั่วไป", "งานวางแผนสถิติและวิชาการ", "งานบริหารงานคลัง", "งานควบคุมภายในและการตรวจสอบภายใน"],
+            "แผนงานการรักษาความสงบภายใน": ["งานป้องกันและบรรเทาสาธารณภัย"],
+            "แผนงานการศึกษา": ["งานบริหารทั่วไปเกี่ยวกับการศึกษา", "งานระดับก่อนวัยเรียนและประถมศึกษา", "งานศึกษาไม่กำหนดระดับ"],
+            "แผนงานสาธารณสุข": ["งานบริหารทั่วไปเกี่ยวกับสาธารณสุข", "งานโรงพยาบาล", "งานบริการสาธารณสุขและงานสาธารณสุขอื่น"],
+            "แผนงานสังคมสงเคราะห์": ["งานบริหารทั่วไปเกี่ยวกับสังคมสงเคราะห์", "งานสวัสดิการสังคมและสังคมสงเคราะห์"],
+            "แผนงานเคหะและชุมชน": ["งานสวนสาธารณะ", "งานกำจัดขยะมูลฝอยและสิ่งปฏิกูล"],
+            "แผนงานสร้างความเข้มแข็งของชุมชน": ["งานส่งเสริมและสนับสนุนความเข้มแข็งชุมชน"],
+            "แผนงานการศาสนา วัฒนธรรม และนันทนาการ": ["งานกีฬาและนันทนาการ", "งานศาสนาวัฒนธรรมท้องถิ่น", "งานวิชาการวางแผนและส่งเสริมการท่องเที่ยว"],
+            "แผนงานอุตสาหกรรมและการโยธา": ["งานบริหารทั่วไปเกี่ยวกับอุตสาหกรรมและการโยธา", "งานก่อสร้าง"],
+            "แผนงานการเกษตร": ["งานส่งเสริมการเกษตร", "งานสิ่งแวดล้อมและทรัพยากรธรรมชาติ"],
+            "แผนงานงบกลาง": ["งบกลาง"]
+        };
+
+        const budgetCategories = ["งบบุคลากร", "งบดำเนินงาน", "งบลงทุน", "งบเงินอุดหนุน", "งบรายจ่ายอื่น", "งบกลาง"];
+
+        let allProjects = {};
+        let activeSelectedPrjId = null;
+        let transferLogsList = [];
+        let currentSelectedPlan = 'แผนงานบริหารงานทั่วไป';
+        let currentSelectedJob = 'all';
+        let currentSelectedCategory = 'all';
+        let currentSelectedSubType = 'all';
+
+        // อ่านข้อมูลแบบ Realtime Sync ดึงภาพรวมงบประมาณล่าสุด
+        db.ref().on('value', snapshot => {
+            const data = snapshot.val() || {};
+            allProjects = data.projects || {};
+            const historyData = data.transfer_history || {};
+
+            transferLogsList = Object.keys(historyData).map(k => ({ firebaseKey: k, ...historyData[k] })).sort((a, b) => a.transfer_no - b.transfer_no);
+
+            const totalCount = Object.keys(allProjects).length;
+            const badge = document.getElementById('dbStatusBadge');
+            badge.className = "flex items-center gap-2 bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-xl border border-emerald-200/80 font-sans font-medium";
+            badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span><span>Firebase Realtime (${totalCount} รายการ)</span>`;
+
+            calculateSummary(allProjects);
+            renderSidebarTransferLogs();
+            renderDynamicA4Pages(allProjects, currentSelectedPlan, currentSelectedJob, currentSelectedCategory, currentSelectedSubType);
+            enableHorizontalScrollForNavs();
+        }, error => {
+            console.error("Firebase error:", error);
+            const badge = document.getElementById('dbStatusBadge');
+            badge.className = "flex items-center gap-2 bg-rose-50 text-rose-700 px-3 py-1.5 rounded-xl border border-rose-200 font-sans font-medium";
+            badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-500"></span><span>โหลดล้มเหลว</span>`;
+        });
+
+        function enableHorizontalScrollForNavs() {
+            const navIds = ['planNavTrack', 'jobNavTrack', 'categoryNavTrack', 'subTypeNavTrack'];
+            navIds.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener('wheel', (e) => {
+                        if (e.deltaY !== 0) {
+                            e.preventDefault();
+                            el.scrollLeft += e.deltaY;
+                        }
+                    }, { passive: false });
+                }
+            });
+        }
+
+        function triggerPrintWithReset(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                const scrollableDiv = modal.querySelector('.overflow-y-auto');
+                if (scrollableDiv) scrollableDiv.scrollTop = 0;
+            }
+            window.print();
+        }
+
+        function calculateSummary(projects) {
+            let total = 0;
+            Object.values(projects).forEach(p => total += (p.current_budget || p.amount || 0));
+            document.getElementById('summaryTotalBudget').innerText = `${total.toLocaleString('th-TH', {minimumFractionDigits: 2})} บาท`;
+            document.getElementById('summaryItemCount').innerText = `${Object.keys(projects).length} รายการ`;
+        }
+
+        function getStaticPlanTotalSum(projects, planName) {
+            let sum = 0;
+            Object.values(projects).forEach(p => {
+                if (planName === 'all' || (p.plan || "แผนงานอื่นๆ") === planName) {
+                    sum += (p.current_budget || p.amount || 0);
+                }
+            });
+            return sum;
+        }
+
+        function getStaticPlanCategoryTotalSum(projects, planName, categoryName) {
+            if (categoryName === 'all') return 0;
+            let sum = 0;
+            Object.values(projects).forEach(p => {
+                const isPlanMatch = (planName === 'all' || (p.plan || "แผนงานอื่นๆ") === planName);
+                if (isPlanMatch && p.budget_group === categoryName) {
+                    sum += (p.current_budget || p.amount || 0);
+                }
+            });
+            return sum;
+        }
+
+        function setSubTypeFilter(subType) {
+            currentSelectedSubType = subType;
+            document.querySelectorAll('[id^="subTypeBtn-"]').forEach(btn => {
+                btn.className = "px-2.5 py-0.5 rounded-lg text-[11px] font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all shrink-0";
+            });
+            const activeBtn = document.getElementById(`subTypeBtn-${subType}`);
+            if (activeBtn) activeBtn.className = "px-2.5 py-0.5 rounded-lg text-[11px] font-bold bg-amber-500 text-slate-900 shadow-sm transition-all shrink-0";
+
+            if (subType !== 'all') {
+                const searchInput = document.getElementById('searchInput');
+                if (searchInput) searchInput.value = subType;
+                filterProjects(subType);
+            } else {
+                const searchInput = document.getElementById('searchInput');
+                if (searchInput) searchInput.value = '';
+                renderDynamicA4Pages(allProjects, currentSelectedPlan, currentSelectedJob, currentSelectedCategory, 'all');
+            }
+        }
+
+        function openContextMenu(event, prjId) {
+            event.preventDefault();
+            activeSelectedPrjId = prjId;
+            const menu = document.getElementById('contextMenu');
+            document.getElementById('ctxProjectCode').innerText = prjId;
+            menu.style.left = `${Math.min(event.clientX, window.innerWidth - 260)}px`;
+            menu.style.top = `${Math.min(event.clientY, window.innerHeight - 200)}px`;
+            menu.classList.remove('hidden');
+        }
+
+        function closeContextMenu() {
+            const menu = document.getElementById('contextMenu');
+            if (menu) menu.classList.add('hidden');
+        }
+
+        function handleCtxAction(actionType) {
+            closeContextMenu();
+            if (!activeSelectedPrjId || !allProjects[activeSelectedPrjId]) return;
+            const item = allProjects[activeSelectedPrjId];
+
+            if (actionType === 'PROJECT_HISTORY') {
+                showProjectHistoryModal(activeSelectedPrjId);
+            } else if (actionType === 'VIEW') {
+                document.getElementById('modalProjectName').innerText = item.project_name;
+                document.getElementById('modalProjectNameDisplay').innerText = item.project_name;
+                document.getElementById('modalProjectCode').innerText = activeSelectedPrjId;
+                document.getElementById('modalProjectCategory').innerText = `${item.plan} ➔ ${item.job || 'งานทั่วไป'} ➔ ${item.budget_group || 'งบประมาณ'}`;
+                document.getElementById('modalProjectNoteDisplay').innerText = item.note || `คำชี้แจงงบประมาณสำหรับ ${item.project_name}`;
+                document.getElementById('modalHistorySection').classList.add('hidden');
+                document.getElementById('detailModal').classList.remove('hidden');
+            }
+        }
+
+        function showProjectHistoryModal(prjId) {
+            const item = allProjects[prjId];
+            document.getElementById('modalProjectName').innerText = item.project_name;
+            document.getElementById('modalProjectNameDisplay').innerText = item.project_name;
+            document.getElementById('modalProjectCode').innerText = prjId;
+            document.getElementById('modalProjectCategory').innerText = `${item.plan} ➔ ${item.job || 'งานทั่วไป'} ➔ ${item.budget_group || 'งบประมาณ'}`;
+            document.getElementById('modalProjectNoteDisplay').innerText = item.note || `คำชี้แจงงบประมาณสำหรับ ${item.project_name}`;
+
+            const historyContainer = document.getElementById('modalHistoryContainer');
+            historyContainer.innerHTML = '';
+
+            const relatedLogs = transferLogsList.filter(l => l.source.id === prjId || l.dest.id === prjId);
+
+            if (relatedLogs.length === 0) {
+                historyContainer.innerHTML = `<div class="text-slate-400 text-center italic py-4">ไม่เคยมีประวัติการโอนงบประมาณในรายการนี้</div>`;
+            } else {
+                relatedLogs.forEach(log => {
+                    const isOut = log.source.id === prjId;
+                    const logEl = document.createElement('div');
+                    logEl.className = `p-2.5 rounded-xl border text-xs font-sans ${isOut ? 'bg-rose-50/80 border-rose-200 text-rose-900' : 'bg-emerald-50/80 border-emerald-200 text-emerald-900'}`;
+                    
+                    const batchNo = log.batch_no || 1;
+                    const seqNo = log.seq_no || log.transfer_no;
+                    logEl.innerHTML = `
+                        <div class="flex justify-between items-center font-bold">
+                            <span>โอนครั้งที่ ${batchNo}/2570 ลำดับที่ ${seqNo} (อนุมัติ: ${log.date})</span>
+                            <span class="font-mono text-sm">${isOut ? '-' : '+'}${log.amount.toLocaleString()} ฿</span>
+                        </div>
+                        <div class="text-[11px] mt-1">
+                            ${isOut ? `🔴 โอนลด ไปยัง: <b>${log.dest.project_name}</b>` : `🟢 รับโอน เพิ่มจาก: <b>${log.source.project_name}</b>`}
+                        </div>
+                    `;
+                    historyContainer.appendChild(logEl);
+                });
+            }
+
+            document.getElementById('modalHistorySection').classList.remove('hidden');
+            document.getElementById('detailModal').classList.remove('hidden');
+        }
+
+        function renderSidebarTransferLogs() {
+            const logContainer = document.getElementById('pairingsLog');
+            if (!transferLogsList || transferLogsList.length === 0) {
+                logContainer.innerHTML = `
+                    <div class="text-center py-8 text-slate-400 italic text-[11px] bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                        ยังไม่มีรายการโอนงบในระบบ
+                    </div>`;
+                document.getElementById('transferCountBadge').innerText = '0 รายการ';
+                return;
+            }
+
+            logContainer.innerHTML = '';
+            const reverseLogs = [...transferLogsList].reverse();
+            reverseLogs.forEach((log) => {
+                const logItem = document.createElement('div');
+                logItem.className = 'p-3 bg-white border border-slate-200 rounded-2xl space-y-1.5 font-sans text-xs shadow-sm border-l-4 border-l-amber-500 relative';
+                
+                const batchNo = log.batch_no || 1;
+                const seqNo = log.seq_no || log.transfer_no;
+
+                logItem.innerHTML = `
+                    <div class="flex items-center justify-between font-bold text-slate-800">
+                        <span class="text-amber-700 font-mono text-[11px]">
+                            <i class="fa-solid fa-receipt"></i> โอนครั้งที่ ${batchNo}/2570 ลำดับที่ ${seqNo}
+                        </span>
+                        <span class="font-mono text-emerald-700 font-bold">${log.amount.toLocaleString()} ฿</span>
+                    </div>
+                    <div class="text-[10px] text-slate-400 font-mono">
+                        <i class="fa-solid fa-calendar-day text-amber-500"></i> วันที่อนุมัติ: <b class="text-slate-600">${log.date}</b>
+                    </div>
+                    <div class="text-[11px] text-slate-500 space-y-0.5 pt-0.5">
+                        <div class="text-rose-600 truncate">🔴 โอนลด: ${log.source.project_name}</div>
+                        <div class="text-emerald-600 truncate">🟢 รับโอน: ${log.dest.project_name}</div>
+                    </div>
+                `;
+                logContainer.appendChild(logItem);
+            });
+            document.getElementById('transferCountBadge').innerText = `${transferLogsList.length} รายการ`;
+        }
+
+        function openAuditLogModal() {
+            const container = document.getElementById('auditLogPrintArea');
+            container.innerHTML = '';
+
+            if (!transferLogsList || transferLogsList.length === 0) {
+                container.innerHTML = `
+                    <div class="p-8 text-center text-slate-500 italic border border-slate-400">
+                        ยังไม่มีประวัติการโอนเงินงบประมาณในระบบ
+                    </div>
+                `;
+            } else {
+                let totalTransferSum = 0;
+                transferLogsList.forEach(l => totalTransferSum += (l.amount || 0));
+
+                const itemsPerPage = 12;
+                const totalPages = Math.ceil(transferLogsList.length / itemsPerPage);
+
+                for (let page = 0; page < totalPages; page++) {
+                    const startIdx = page * itemsPerPage;
+                    const pageItems = transferLogsList.slice(startIdx, startIdx + itemsPerPage);
+                    const isLastPage = (page === totalPages - 1);
+
+                    const pageDiv = document.createElement('div');
+                    pageDiv.className = `bg-white font-sarabun text-slate-900 text-xs rounded-none w-full ${!isLastPage ? 'print-page-break mb-8 pb-8 border-b border-dashed border-slate-300' : ''}`;
+
+                    let tableHtml = `
+                        <div class="flex justify-between items-start mb-2 px-1">
+                            <div class="flex-1"></div>
+                            <div class="text-right font-mono text-[11px] text-slate-700 font-bold">
+                                หน้า ${page + 1} จาก ${totalPages}
+                            </div>
+                        </div>
+
+                        <div class="text-center space-y-1 mb-3">
+                            <h2 class="font-bold text-base">รายงานสรุปประวัติการโอนเงินงบประมาณรายจ่าย (Audit Log Trail)</h2>
+                            <p class="text-xs text-slate-600">องค์การบริหารส่วนตำบลข่วงเปา อำเภอจอมทอง จังหวัดเชียงใหม่</p>
+                        </div>
+
+                        <div class="flex justify-between items-center text-xs font-bold mb-2 px-1">
+                            <span>จำนวนการโอนทั้งหมด: ${transferLogsList.length} รายการ (แผ่นที่ ${page + 1})</span>
+                            <span class="font-mono text-emerald-700">ยอดเงินโอนรวมทั้งสิ้น: ${totalTransferSum.toLocaleString('th-TH', {minimumFractionDigits: 2})} บาท</span>
+                        </div>
+
+                        <table class="w-full border-collapse border border-slate-400 text-xs" style="table-layout: fixed; width: 100%;">
+                            <colgroup>
+                                <col style="width: 6%;">
+                                <col style="width: 14%;">
+                                <col style="width: 12%;">
+                                <col style="width: 27%;">
+                                <col style="width: 27%;">
+                                <col style="width: 14%;">
+                            </colgroup>
+                            <thead>
+                                <tr class="bg-slate-100 text-center font-bold">
+                                    <th class="border border-slate-400 p-2 text-center">ที่</th>
+                                    <th class="border border-slate-400 p-2 text-center">ชุด/ลำดับโอน</th>
+                                    <th class="border border-slate-400 p-2 text-center">วันที่อนุมัติ</th>
+                                    <th class="border border-slate-400 p-2 text-left">รายการโอนลด (ต้นทาง)</th>
+                                    <th class="border border-slate-400 p-2 text-left">รายการรับโอน (ปลายทาง)</th>
+                                    <th class="border border-slate-400 p-2 text-right">จำนวนเงิน (บาท)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
+
+                    pageItems.forEach((log, index) => {
+                        const globalIdx = startIdx + index + 1;
+                        const batchNo = log.batch_no || 1;
+                        const seqNo = log.seq_no || log.transfer_no;
+
+                        tableHtml += `
+                            <tr>
+                                <td class="border border-slate-400 p-1.5 text-center">${globalIdx}</td>
+                                <td class="border border-slate-400 p-1.5 text-center font-mono font-bold">
+                                    ครั้งที่ ${batchNo}/2570<br><span class="text-amber-700">ลำดับที่ ${seqNo}</span>
+                                </td>
+                                <td class="border border-slate-400 p-1.5 text-center font-mono">${log.date}</td>
+                                <td class="border border-slate-400 p-1.5" style="word-break: break-word;">
+                                    <span class="font-bold text-rose-700">${log.source.project_name}</span><br>
+                                    <span class="text-[10px] text-slate-500">ก่อน: ${log.source.budget_before.toLocaleString()} ฿ ➔ หลัง: ${log.source.budget_after.toLocaleString()} ฿</span>
+                                </td>
+                                <td class="border border-slate-400 p-1.5" style="word-break: break-word;">
+                                    <span class="font-bold text-emerald-700">${log.dest.project_name}</span> ${log.is_new_item ? '<span class="text-[9px] bg-purple-100 text-purple-700 font-bold px-1 rounded">(รายการใหม่)</span>' : ''}<br>
+                                    <span class="text-[10px] text-slate-500">ก่อน: ${log.dest.budget_before.toLocaleString()} ฿ ➔ หลัง: ${log.dest.budget_after.toLocaleString()} ฿</span>
+                                </td>
+                                <td class="border border-slate-400 p-1.5 text-right font-mono font-bold text-slate-900">${log.amount.toLocaleString('th-TH', {minimumFractionDigits: 2})}</td>
+                            </tr>
+                        `;
+                    });
+
+                    tableHtml += `
+                            </tbody>
+                        </table>
+                    `;
+
+                    pageDiv.innerHTML = tableHtml;
+                    container.appendChild(pageDiv);
+                }
+            }
+            
+            const modalContainer = document.getElementById('auditLogModal');
+            if (modalContainer) {
+                const scrollDiv = modalContainer.querySelector('.overflow-y-auto');
+                if (scrollDiv) scrollDiv.scrollTop = 0;
+            }
+            modalContainer.classList.remove('hidden');
+        }
+
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+        function renderDynamicA4Pages(projects, selectedPlanFilter = 'แผนงานบริหารงานทั่วไป', selectedJobFilter = 'all', selectedCategoryFilter = 'all', selectedSubTypeFilter = 'all') {
+            currentSelectedPlan = selectedPlanFilter;
+            currentSelectedJob = selectedJobFilter;
+            currentSelectedCategory = selectedCategoryFilter;
+            currentSelectedSubType = selectedSubTypeFilter;
+
+            const planNavTrack = document.getElementById('planNavTrack');
+            planNavTrack.innerHTML = `<span class="text-slate-500 font-bold text-[11px] shrink-0 mr-2 flex items-center gap-1.5"><i class="fa-solid fa-sitemap text-emerald-600"></i> แผนงาน (1):</span>`;
+
+            const allPlanBtn = document.createElement('button');
+            const isAllPlanSelected = (selectedPlanFilter === 'all');
+            allPlanBtn.className = `px-3 py-1 rounded-xl font-bold text-xs shadow-sm transition-all shrink-0 border ${isAllPlanSelected ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white hover:bg-emerald-50 text-slate-700 border-slate-200'}`;
+            allPlanBtn.innerHTML = `<i class="fa-solid fa-layer-group"></i> ทุกแผนงาน (รวมทั้ง อบต.)`;
+            allPlanBtn.onclick = () => renderDynamicA4Pages(allProjects, 'all', 'all', currentSelectedCategory, currentSelectedSubType);
+            planNavTrack.appendChild(allPlanBtn);
+
+            const allPlans = Object.keys(planJobMapping);
+            let pIdx = 1;
+            allPlans.forEach(planName => {
+                const navBtn = document.createElement('button');
+                const isSelected = (selectedPlanFilter === planName);
+                navBtn.className = `px-3 py-1 rounded-xl font-medium text-xs shadow-sm transition-all shrink-0 border ${isSelected ? 'bg-emerald-600 text-white border-emerald-600 font-bold' : 'bg-white hover:bg-emerald-50 text-slate-700 border-slate-200'}`;
+                navBtn.innerText = `${pIdx}. ${planName.replace('แผนงาน', '')}`;
+                navBtn.onclick = () => renderDynamicA4Pages(allProjects, planName, 'all', currentSelectedCategory, currentSelectedSubType);
+                planNavTrack.appendChild(navBtn);
+                pIdx++;
+            });
+
+            const jobNavTrack = document.getElementById('jobNavTrack');
+            jobNavTrack.innerHTML = `<span class="text-slate-400 font-semibold text-[11px] shrink-0 mr-2 flex items-center gap-1.5"><i class="fa-solid fa-list-check text-indigo-500"></i> งานย่อย (2):</span>`;
+
+            const allJobBtn = document.createElement('button');
+            allJobBtn.className = `px-3 py-0.5 rounded-xl font-bold text-xs shadow-sm transition-all shrink-0 ${selectedJobFilter === 'all' ? 'bg-indigo-600 text-white' : 'bg-white hover:bg-indigo-50 text-slate-700 border border-slate-200'}`;
+            allJobBtn.innerHTML = `<i class="fa-solid fa-layer-group"></i> งานทั้งหมด`;
+            allJobBtn.onclick = () => renderDynamicA4Pages(allProjects, selectedPlanFilter, 'all', currentSelectedCategory, currentSelectedSubType);
+            jobNavTrack.appendChild(allJobBtn);
+
+            if (selectedPlanFilter !== 'all') {
+                const jobsInPlan = planJobMapping[selectedPlanFilter] || [];
+                jobsInPlan.forEach(jName => {
+                    const jBtn = document.createElement('button');
+                    const isJSelected = (selectedJobFilter === jName);
+                    jBtn.className = `px-3 py-0.5 rounded-xl font-medium text-xs shadow-sm transition-all shrink-0 border ${isJSelected ? 'bg-indigo-600 text-white border-indigo-600 font-bold' : 'bg-white hover:bg-indigo-50 text-slate-700 border-slate-200'}`;
+                    jBtn.innerText = jName;
+                    jBtn.onclick = () => renderDynamicA4Pages(allProjects, selectedPlanFilter, jName, currentSelectedCategory, currentSelectedSubType);
+                    jobNavTrack.appendChild(jBtn);
+                });
+            }
+
+            const catNavTrack = document.getElementById('categoryNavTrack');
+            catNavTrack.innerHTML = `<span class="text-slate-600 font-bold text-[11px] shrink-0 mr-2 flex items-center gap-1.5"><i class="fa-solid fa-wallet text-amber-600"></i> หมวดงบ (3):</span>`;
+
+            const allCatBtn = document.createElement('button');
+            allCatBtn.className = `px-3 py-0.5 rounded-xl font-bold text-xs shadow-sm transition-all shrink-0 ${selectedCategoryFilter === 'all' ? 'bg-amber-600 text-white' : 'bg-white hover:bg-amber-50 text-slate-700 border border-slate-200'}`;
+            allCatBtn.innerHTML = `ทุกงบประมาณ`;
+            allCatBtn.onclick = () => renderDynamicA4Pages(allProjects, selectedPlanFilter, selectedJobFilter, 'all', currentSelectedSubType);
+            catNavTrack.appendChild(allCatBtn);
+
+            budgetCategories.forEach(catName => {
+                const cBtn = document.createElement('button');
+                const isCSelected = (selectedCategoryFilter === catName);
+                cBtn.className = `px-3 py-0.5 rounded-xl font-medium text-xs shadow-sm transition-all shrink-0 border ${isCSelected ? 'bg-amber-600 text-white border-amber-600 font-bold' : 'bg-white hover:bg-amber-50 text-slate-700 border-slate-200'}`;
+                cBtn.innerText = catName;
+                cBtn.onclick = () => renderDynamicA4Pages(allProjects, selectedPlanFilter, selectedJobFilter, catName, currentSelectedSubType);
+                catNavTrack.appendChild(cBtn);
+            });
+
+            const groupedJobs = {};
+            Object.keys(projects).forEach(id => {
+                const item = projects[id];
+                const plan = item.plan || "แผนงานอื่นๆ";
+                const job = item.job || "งานทั่วไป";
+                const cat = item.budget_group || "หมวดทั่วไป";
+                const prjName = item.project_name || "";
+
+                if (selectedPlanFilter !== 'all' && plan !== selectedPlanFilter) return;
+                if (selectedJobFilter !== 'all' && job !== selectedJobFilter) return;
+                if (selectedCategoryFilter !== 'all' && cat !== selectedCategoryFilter) return;
+                if (selectedSubTypeFilter !== 'all' && !prjName.includes(selectedSubTypeFilter)) return;
+
+                const groupKey = (selectedPlanFilter === 'all') ? `[${plan.replace('แผนงาน', '')}] ${job}` : job;
+                if (!groupedJobs[groupKey]) groupedJobs[groupKey] = [];
+                groupedJobs[groupKey].push({ id, ...item });
+            });
+
+            const mainTrack = document.getElementById('paperTrack');
+            const searchBox = mainTrack.firstElementChild;
+            mainTrack.innerHTML = '';
+            if (searchBox) mainTrack.appendChild(searchBox);
+
+            const planTotalStaticSum = getStaticPlanTotalSum(projects, selectedPlanFilter);
+            const categoryTotalSum = getStaticPlanCategoryTotalSum(projects, selectedPlanFilter, selectedCategoryFilter);
+
+            let categoryExtraLineHtml = '';
+            if (selectedCategoryFilter !== 'all') {
+                categoryExtraLineHtml = `
+                <div class="text-right font-sans border-t border-amber-200 pt-1.5 mt-1.5">
+                    <span class="text-[11px] text-amber-700 font-bold block">
+                        <i class="fa-solid fa-filter text-amber-500"></i> รวมเฉพาะ [${selectedCategoryFilter}] ในขอบเขตนี้:
+                    </span>
+                    <span class="text-base font-bold font-mono text-amber-800 bg-amber-100/80 px-2.5 py-0.5 rounded-lg border border-amber-300 inline-block">
+                        ${categoryTotalSum.toLocaleString('th-TH', {minimumFractionDigits: 2})} บาท
+                    </span>
+                </div>
+                `;
+            }
+
+            const headerPlanTitleDisplay = (selectedPlanFilter === 'all') ? 'ทุกแผนงาน (รวมทั้ง อบต.ข่วงเปา)' : selectedPlanFilter;
+
+            let pageHtml = `
+            <section class="a4-page font-sarabun space-y-6 border border-slate-200/60">
+                <div class="text-center pb-2 border-b border-slate-100">
+                    <div class="text-[21px] font-bold text-slate-500 font-sans tracking-wide">งบประมาณจำแนกตามแผนงาน (Executive Read-Only View)</div>
+                </div>
+
+                <div class="border-b-2 border-slate-900 pb-3 flex justify-between items-end gap-4">
+                    <div>
+                        <span class="text-xs font-sans text-slate-400">ส่วนราชการ / แผนงาน</span>
+                        <h2 class="text-xl font-bold text-slate-900">${headerPlanTitleDisplay}</h2>
+                    </div>
+                    <div class="text-right font-sans">
+                        <span class="text-[11px] text-slate-500 font-medium block">รวมงบประมาณในขอบเขตนี้</span>
+                        <span class="text-lg font-bold font-mono text-emerald-700 bg-emerald-50 px-3 py-1 rounded-xl border border-emerald-200 shadow-sm inline-block">
+                            ${planTotalStaticSum.toLocaleString('th-TH', {minimumFractionDigits: 2})} บาท
+                        </span>
+                        ${categoryExtraLineHtml}
+                    </div>
+                </div>
+            `;
+
+            if (Object.keys(groupedJobs).length === 0) {
+                pageHtml += `<div class="text-center py-16 text-slate-400 font-sans italic">ไม่พบรายการที่ตรงตามเงื่อนไขตัวกรอง</div>`;
+            } else {
+                Object.keys(groupedJobs).forEach(jobName => {
+                    let jobTotalSum = 0;
+                    groupedJobs[jobName].forEach(item => { jobTotalSum += (item.current_budget || item.amount || 0); });
+
+                    pageHtml += `
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center bg-emerald-50/70 border-l-4 border-emerald-500 px-3 py-2 rounded-r-xl">
+                            <h3 class="font-bold text-sm text-slate-800">➔ ${jobName}</h3>
+                            <div class="font-mono text-xs font-bold text-emerald-800 bg-white/80 px-2.5 py-0.5 rounded-lg border border-emerald-200/80 shadow-xs">
+                                รวมกลุ่มนี้: ${jobTotalSum.toLocaleString('th-TH', {minimumFractionDigits: 2})} บาท
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 gap-2.5">
+                    `;
+
+                    groupedJobs[jobName].forEach(item => {
+                        pageHtml += `
+                        <div oncontextmenu="openContextMenu(event, '${item.id}')" class="p-4 bg-white border border-slate-200/90 hover:border-emerald-400 hover:shadow-md rounded-2xl font-sans text-xs transition-all cursor-context-menu flex flex-col gap-2 relative group hover:-translate-y-0.5" id="card-${item.id}">
+                            <div class="flex justify-between items-center gap-4 w-full header-line">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="px-2.5 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-bold rounded-lg border border-slate-200">${item.budget_group || 'งบประมาณ'}</span>
+                                    <span class="font-mono text-[10px] text-slate-400">${item.id}</span>
+                                    ${item.is_new_item ? '<span class="px-2 py-0.5 bg-purple-100 text-purple-700 text-[10px] font-bold rounded-lg border border-purple-200">✨ รายการตั้งใหม่</span>' : ''}
+                                </div>
+                            </div>
+                            <div class="flex justify-between items-end gap-4 w-full">
+                                <div class="flex-1 min-w-0">
+                                    <h4 class="font-bold text-slate-900 text-sm truncate">${item.project_name}</h4>
+                                </div>
+                                <div class="text-right font-mono shrink-0">
+                                    <div class="text-base font-bold text-emerald-600">${(item.current_budget || item.amount || 0).toLocaleString('th-TH', {minimumFractionDigits: 2})} บาท</div>
+                                </div>
+                            </div>
+                        </div>
+                        `;
+                    });
+
+                    pageHtml += `</div></div>`;
+                });
+            }
+
+            pageHtml += `</section>`;
+            mainTrack.insertAdjacentHTML('beforeend', pageHtml);
+
+            const currentQuery = document.getElementById('searchInput') ? document.getElementById('searchInput').value.trim() : '';
+            if (currentQuery) filterProjects(currentQuery);
+        }
+
+        function filterProjects(query) {
+            const q = query.trim().toLowerCase();
+            const cards = document.querySelectorAll('[id^="card-PRJ-"]');
+            if (!q) {
+                cards.forEach(card => card.style.display = 'flex');
+                removeSmartBanner();
+                document.querySelectorAll('#paperTrack > section > div.space-y-3').forEach(el => el.style.display = 'block');
+                return;
+            }
+
+            let matchCount = 0, matchTotalSum = 0;
+            Object.keys(allProjects).forEach(prjId => {
+                const item = allProjects[prjId];
+                const searchText = `${item.project_name || ''} ${item.budget_group || ''} ${item.plan || ''} ${item.job || ''} ${item.note || ''}`.toLowerCase();
+                if (searchText.includes(q)) {
+                    matchCount++;
+                    matchTotalSum += (item.current_budget || item.amount || 0);
+                }
+            });
+
+            cards.forEach(card => {
+                const text = card.innerText.toLowerCase();
+                card.style.display = text.includes(q) ? 'flex' : 'none';
+            });
+
+            document.querySelectorAll('#paperTrack > section > div.space-y-3').forEach(jobBlock => {
+                const visibleCards = jobBlock.querySelectorAll('[id^="card-PRJ-"]:not([style*="display: none"])');
+                jobBlock.style.display = visibleCards.length > 0 ? 'block' : 'none';
+            });
+
+            renderSmartBanner(query, matchCount, matchTotalSum);
+        }
+
+        function renderSmartBanner(query, count, totalSum) {
+            let banner = document.getElementById('smartSearchBanner');
+            const paperTrack = document.getElementById('paperTrack');
+            if (!paperTrack) return;
+
+            if (!banner) {
+                banner = document.createElement('div');
+                banner.id = 'smartSearchBanner';
+                banner.className = 'w-full max-w-[820px] mx-auto mb-4 p-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl shadow-xl border border-indigo-500/30 flex items-center justify-between gap-4 font-sans no-print animate-fade-in';
+                if (paperTrack.children.length > 1) paperTrack.insertBefore(banner, paperTrack.children[1]);
+                else paperTrack.appendChild(banner);
+            }
+
+            banner.innerHTML = `
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-lg border border-amber-500/30 shrink-0"><i class="fa-solid fa-wand-magic-sparkles animate-pulse"></i></div>
+                    <div>
+                        <span class="text-[10px] text-amber-400 font-bold uppercase tracking-wider block">Executive Smart Search</span>
+                        <h4 class="font-bold text-xs text-slate-100">ผลสรุปรายการตามคำสั่ง: "<span class="text-amber-300 font-semibold">${query}</span>"</h4>
+                        <p class="text-[11px] text-slate-400">พบทั้งหมด <b class="text-white">${count}</b> รายการ</p>
+                    </div>
+                </div>
+                <div class="text-right font-mono shrink-0">
+                    <span class="text-[10px] text-slate-400 block font-sans">รวมงบประมาณทั้งสิ้น</span>
+                    <span class="text-lg font-bold text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-xl border border-emerald-500/20 inline-block">${totalSum.toLocaleString('th-TH', {minimumFractionDigits: 2})} ฿</span>
+                </div>
+            `;
+        }
+
+        function removeSmartBanner() {
+            const banner = document.getElementById('smartSearchBanner');
+            if (banner) banner.remove();
+        }
+
+        function openRawListModal() {
+            initPrintFilters();
+            updatePrintListTable();
+            
+            const container = document.getElementById('rawListContainer');
+            if (container) container.scrollTop = 0;
+
+            document.getElementById('rawListModal').classList.remove('hidden');
+        }
+
+        function initPrintFilters() {
+            const planSel = document.getElementById('printSelectPlan');
+            const catSel = document.getElementById('printSelectCategory');
+
+            planSel.innerHTML = `<option value="all">-- ทุกแผนงาน (All Plans) --</option>`;
+            Object.keys(planJobMapping).forEach(p => { planSel.innerHTML += `<option value="${p}">${p}</option>`; });
+            planSel.value = 'all';
+
+            catSel.innerHTML = `<option value="all">-- ทุกหมวดงบ (All Categories) --</option>`;
+            budgetCategories.forEach(c => { catSel.innerHTML += `<option value="${c}">${c}</option>`; });
+            catSel.value = currentSelectedCategory;
+
+            onPrintFilterChange();
+        }
+
+        function onPrintFilterChange() {
+            const planVal = document.getElementById('printSelectPlan').value;
+            const jobSel = document.getElementById('printSelectJob');
+
+            jobSel.innerHTML = `<option value="all">-- ทุกงานย่อย (All Jobs) --</option>`;
+            if (planVal !== 'all' && planJobMapping[planVal]) {
+                planJobMapping[planVal].forEach(j => { jobSel.innerHTML += `<option value="${j}">${j}</option>`; });
+            }
+            jobSel.value = currentSelectedJob;
+            updatePrintListTable();
+        }
+
+        function updatePrintListTable() {
+            const selPlan = document.getElementById('printSelectPlan').value;
+            const selJob = document.getElementById('printSelectJob').value;
+            const selCat = document.getElementById('printSelectCategory').value;
+            const searchQuery = document.getElementById('searchInput') ? document.getElementById('searchInput').value.trim().toLowerCase() : '';
+
+            let filtered = [];
+            Object.keys(allProjects).forEach(id => {
+                const item = allProjects[id];
+                const p = item.plan || "แผนงานอื่นๆ";
+                const j = item.job || "งานทั่วไป";
+                const c = item.budget_group || "หมวดทั่วไป";
+
+                if (selPlan !== 'all' && p !== selPlan) return;
+                if (selJob !== 'all' && j !== selJob) return;
+                if (selCat !== 'all' && c !== selCat) return;
+
+                if (searchQuery) {
+                    const searchText = `${item.project_name || ''} ${item.budget_group || ''} ${item.plan || ''} ${item.job || ''} ${item.note || ''}`.toLowerCase();
+                    if (!searchText.includes(searchQuery)) return;
+                }
+
+                filtered.push({ id, ...item });
+            });
+
+            let totalSum = 0;
+            filtered.forEach(i => totalSum += (i.current_budget || i.amount || 0));
+
+            const container = document.getElementById('rawListPrintArea');
+            container.innerHTML = '';
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="p-8 text-center text-slate-500 italic border border-slate-400">
+                        ไม่พบรายการที่ตรงกับเงื่อนไขที่เลือกหรือคำค้นหา
+                    </div>
+                `;
+                return;
+            }
+
+            const itemsPerPage = 15;
+            const totalPages = Math.ceil(filtered.length / itemsPerPage);
+
+            for (let page = 0; page < totalPages; page++) {
+                const startIdx = page * itemsPerPage;
+                const pageItems = filtered.slice(startIdx, startIdx + itemsPerPage);
+                const isLastPage = (page === totalPages - 1);
+
+                const pageDiv = document.createElement('div');
+                pageDiv.className = `bg-white font-sarabun text-slate-900 text-xs rounded-none w-full ${!isLastPage ? 'print-page-break mb-8 pb-8 border-b border-dashed border-slate-300' : ''}`;
+
+                let tableHtml = `
+                    <div class="flex justify-between items-start mb-2 px-1">
+                        <div class="flex-1"></div>
+                        <div class="text-right font-mono text-[11px] text-slate-700 font-bold">
+                            หน้า ${page + 1} จาก ${totalPages}
+                        </div>
+                    </div>
+
+                    <div class="text-center space-y-1 mb-3">
+                        <h2 class="font-bold text-base">รายงานจำแนกรายการงบประมาณรายจ่าย (แบบ List)</h2>
+                        <p class="text-xs text-slate-600">องค์การบริหารส่วนตำบลข่วงเปา ประจำปีงบประมาณ พ.ศ. 2570</p>
+                    </div>
+
+                    <div class="flex justify-between items-center text-xs font-bold mb-2 px-1">
+                        <span>จำนวนรายการทั้งหมด: ${filtered.length} รายการ (แผ่นที่ ${page + 1})</span>
+                        <span class="font-mono text-emerald-700">งบประมาณรวมทั้งสิ้น: ${totalSum.toLocaleString('th-TH', {minimumFractionDigits: 2})} บาท</span>
+                    </div>
+
+                    <table class="w-full border-collapse border border-slate-400 text-xs" style="table-layout: fixed; width: 100%;">
+                        <colgroup>
+                            <col style="width: 7%;">
+                            <col style="width: 18%;">
+                            <col style="width: 45%;">
+                            <col style="width: 15%;">
+                            <col style="width: 15%;">
+                        </colgroup>
+                        <thead>
+                            <tr class="bg-slate-100 text-center font-bold">
+                                <th class="border border-slate-400 p-2 text-center">ที่</th>
+                                <th class="border border-slate-400 p-2 text-center">รหัส (ID)</th>
+                                <th class="border border-slate-400 p-2 text-left">ชื่อรายการ / โครงการ</th>
+                                <th class="border border-slate-400 p-2 text-center">หมวดงบประมาณ</th>
+                                <th class="border border-slate-400 p-2 text-right">งบประมาณ (บาท)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+
+                pageItems.forEach((item, index) => {
+                    const globalIdx = startIdx + index + 1;
+                    tableHtml += `
+                        <tr>
+                            <td class="border border-slate-400 p-1.5 text-center">${globalIdx}</td>
+                            <td class="border border-slate-400 p-1.5 font-mono text-center">${item.id}</td>
+                            <td class="border border-slate-400 p-1.5" style="word-break: break-word;">${item.project_name}<br><span class="text-[10px] text-slate-500">${item.plan || ''} > ${item.job || ''}</span></td>
+                            <td class="border border-slate-400 p-1.5 text-center">${item.budget_group || '-'}</td>
+                            <td class="border border-slate-400 p-1.5 text-right font-mono font-bold">${(item.current_budget || item.amount || 0).toLocaleString('th-TH', {minimumFractionDigits: 2})}</td>
+                        </tr>
+                    `;
+                });
+
+                tableHtml += `
+                        </tbody>
+                    </table>
+                `;
+
+                pageDiv.innerHTML = tableHtml;
+                container.appendChild(pageDiv);
+            }
+        }
+    </script>
+</body>
+</html>

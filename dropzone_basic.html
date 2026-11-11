@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Secure Dropzone - อบต.ข่วงเปา</title>
+    <!-- เรียกใช้งาน Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 min-h-screen flex items-center justify-center p-4">
+
+    <div class="max-w-xl w-full bg-white p-6 rounded-xl shadow-md border border-slate-200">
+        
+        <!-- ส่วนหัวข้อและโลโก้ขนาดปกติ -->
+        <div class="flex items-center space-x-3 mb-4">
+            <img src="LOGO.jpg" alt="ตราสัญลักษณ์ อบต.ข่วงเปา" class="w-10 h-10 object-cover rounded-full border border-slate-200">
+            <div>
+                <h3 class="text-lg font-bold text-slate-800">🛡️ Advanced Pre-drop Dropzone</h3>
+                <p class="text-xs text-slate-500">ระบบคัดกรองเอกสารอัจฉริยะ อบต.ข่วงเปา (PDPA & AI Guardrail)</p>
+            </div>
+        </div>
+
+        <!-- Drop Box Area -->
+        <div id="drop-zone" class="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center bg-slate-50">
+            <svg class="mx-auto h-10 w-10 text-slate-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+            </svg>
+            <p class="text-sm font-medium text-slate-700">ทดสอบระบบคัดกรองเอกสารอัจฉริยะ</p>
+            <p class="text-xs text-slate-400 mt-1">กดปุ่มจำลองด้านล่างเพื่อทดสอบการทำงานของ Advanced Engine</p>
+        </div>
+
+        <!-- ปุ่มจำลองการทดสอบ 3 กรณี -->
+        <div class="mt-4 grid grid-cols-1 gap-2">
+            <button onclick="runTest('bad_pii')" class="bg-red-500 hover:bg-red-600 text-white text-xs py-2 px-3 rounded-lg font-semibold transition text-left flex justify-between items-center">
+                <span>🚨 ทดสอบ: ไฟล์ติดข้อมูลส่วนบุคคล (PII / เลขบัตรประชาชน)</span>
+                <span class="bg-red-700 px-2 py-0.5 rounded text-[10px]">REJECT</span>
+            </button>
+            <button onclick="runTest('bad_category')" class="bg-amber-500 hover:bg-amber-600 text-white text-xs py-2 px-3 rounded-lg font-semibold transition text-left flex justify-between items-center">
+                <span>⚠️ ทดสอบ: ไฟล์ไม่ตรงหมวดหมู่งานราชการ (ไฟล์ส่วนตัว)</span>
+                <span class="bg-amber-700 px-2 py-0.5 rounded text-[10px]">REJECT</span>
+            </button>
+            <button onclick="runTest('good_doc')" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-2 px-3 rounded-lg font-semibold transition text-left flex justify-between items-center">
+                <span>✅ ทดสอบ: ไฟล์ระเบียบราชการที่สะอาดปลอดภัย</span>
+                <span class="bg-emerald-800 px-2 py-0.5 rounded text-[10px]">APPROVED</span>
+            </button>
+        </div>
+
+        <!-- Security Guardrail Notice -->
+        <div class="mt-4 p-3 bg-slate-50 border-l-4 border-slate-400 text-slate-700 text-xs rounded-r-lg">
+            <span class="font-bold">ระบบความปลอดภัย:</span> มีระบบบันทึก Audit Trail และตรวจสอบด้วย Advanced PII & Smart Classification ทุกครั้ง
+        </div>
+
+        <!-- Feedback Area (แสดงผลลัพธ์) -->
+        <div id="feedback-box" class="mt-4 hidden p-4 rounded-lg text-xs font-medium border">
+            <!-- ผลลัพธ์จะแสดงตรงนี้ -->
+        </div>
+
+    </div>
+
+    <!-- JavaScript สำหรับรัน Advanced Pre-drop Engine -->
+    <script>
+        class AdvancedPreDropSanitizerEngine {
+            constructor() {
+                this.piiPatterns = {
+                    thaiIdCard: /\b\d{1}-\d{4}-\d{5}-\d{2}-\d{1}\b/g,
+                    phoneNumber: /\b0[689]\d{8}\b/g,
+                    email: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g,
+                    bankAccount: /\b\d{3}-\d-\d{5}-\d\b/g
+                };
+                this.contextKeywords = ["บ้านเลขที่", "ที่อยู่ส่วนตัว", "เงินเดือนส่วนบุคคล", "บัตรประชาชนเลขที่"];
+                this.allowedOfficialCategories = [
+                    "ระเบียบ", "ข้อบัญญัติ", "โครงการ", "งบประมาณ", "แผนพัฒนา", 
+                    "รายงานการประชุม", "คำขออนุญาต", "ประกาศ", "ของดีข่วงเปา"
+                ];
+                this.auditLogs = [];
+            }
+
+            async processAndScan(fileName, fileType, fileContent) {
+                let issues = [];
+
+                // 1. ตรวจสอบ PII & Context
+                for (let [key, pattern] of Object.entries(this.piiPatterns)) {
+                    if (pattern.test(fileContent)) {
+                        issues.push(`ข้อมูลส่วนบุคคล [${key}]`);
+                    }
+                }
+                for (let keyword of this.contextKeywords) {
+                    if (fileContent.includes(keyword)) {
+                        issues.push(`คำบริบทอ่อนไหว [${keyword}]`);
+                    }
+                }
+
+                if (issues.length > 0) {
+                    this.recordSecurityAudit(fileName, "REJECTED", issues.join(", "));
+                    return {
+                        status: "REJECTED",
+                        reason: `🚨 ละเมิดกฎเหล็ก PDPA: ตรวจพบ ${issues.join(", ")}`,
+                        fileName: fileName
+                    };
+                }
+
+                // 2. ตรวจสอบหมวดหมู่งานราชการ (Smart Classification)
+                let isOfficialValid = this.allowedOfficialCategories.some(keyword => fileContent.includes(keyword));
+                if (!isOfficialValid) {
+                    this.recordSecurityAudit(fileName, "REJECTED", "ไม่ตรงหมวดหมู่งานราชการ");
+                    return {
+                        status: "REJECTED",
+                        reason: `⚠️ ปฏิเสธการนำเข้า: เนื้อหาไม่ตรงกับหมวดหมู่งานราชการของ อบต.ข่วงเปา (ระบบป้องกันไฟล์ส่วนตัว)`,
+                        fileName: fileName
+                    };
+                }
+
+                // ผ่าน
+                this.recordSecurityAudit(fileName, "APPROVED", "ผ่านการตรวจสอบสมบูรณ์");
+                return {
+                    status: "APPROVED",
+                    reason: "✅ เอกสารสะอาด ปลอดภัย ตรงตามหมวดหมู่งานราชการ พร้อมส่งเข้า Dropzone",
+                    fileName: fileName
+                };
+            }
+
+            recordSecurityAudit(fileName, status, details) {
+                const logEntry = {
+                    timestamp: new Date().toISOString(),
+                    officer: "OFFICER_KHUANG_PAO",
+                    fileName: fileName,
+                    actionStatus: status,
+                    violationDetails: details
+                };
+                this.auditLogs.push(logEntry);
+                console.warn(`[SECURITY AUDIT LOG]:`, logEntry);
+            }
+        }
+
+        const engine = new AdvancedPreDropSanitizerEngine();
+        const feedbackBox = document.getElementById('feedback-box');
+
+        async function runTest(type) {
+            let fileName = "";
+            let content = "";
+
+            if (type === 'bad_pii') {
+                fileName = "citizen_data_leak.txt";
+                content = "รายงานผู้ป่วยและประชาชน นายสมชาย ใจดี เลขบัตรประชาชน 1-5099-00123-45-6 เบอร์โทร 0891234567";
+            } else if (type === 'bad_category') {
+                fileName = "my_vacation_photos.zip";
+                content = "รูปภาพท่องเที่ยวส่วนตัวและเพลงโปรดไปเที่ยวทะเลเชียงใหม่";
+            } else {
+                fileName = "budget_plan_2570.txt";
+                content = "แผนพัฒนาท้องถิ่น ประจำปีงบประมาณ พ.ศ. 2570 ของ อบต.ข่วงเปา โครงการก่อสร้างถนนคอนกรีตเสริมเหล็ก";
+            }
+
+            // รันระบบสแกน
+            const result = await engine.processAndScan(fileName, "txt", content);
+            renderUI(result);
+        }
+
+        function renderUI(result) {
+            feedbackBox.classList.remove('hidden');
+
+            if (result.status === "REJECTED") {
+                feedbackBox.className = "mt-4 p-4 rounded-lg text-xs font-medium border bg-red-50 border-red-200 text-red-800";
+                feedbackBox.innerHTML = `
+                    <p class="font-bold text-sm mb-1">🚨 สถานะ: REJECTED (ถูกบล็อกความปลอดภัย)</p>
+                    <p><b>ไฟล์:</b> ${result.fileName}</p>
+                    <p class="mt-1">${result.reason}</p>
+                    <p class="mt-2 text-[10px] text-red-600">* ระบบได้บันทึก Audit Trail ลงใน Security Log เรียบร้อยแล้ว</p>
+                `;
+            } else {
+                feedbackBox.className = "mt-4 p-4 rounded-lg text-xs font-medium border bg-emerald-50 border-emerald-200 text-emerald-800";
+                feedbackBox.innerHTML = `
+                    <p class="font-bold text-sm mb-1">✅ สถานะ: APPROVED (ผ่านเกณฑ์มาตรฐาน)</p>
+                    <p><b>ไฟล์:</b> ${result.fileName}</p>
+                    <p class="mt-1">${result.reason}</p>
+                    <p class="mt-2 text-[10px] text-emerald-600">* พร้อมส่งเข้าเซิร์ฟเวอร์ส่วนกลางของ อบต.ข่วงเปา แล้ว</p>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>
