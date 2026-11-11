@@ -3,17 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BAAS - Modern Budget Hub (v6.8 Full Integration + Executive Read-Only Guard)</title>
+    <title>BAAS - Modern Budget Hub (Executive Read-Only View)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
     
-    <!-- Firebase SDK (v8 CDN) -->
+    <!-- Firebase SDK (v8 CDN - Read Only) -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-
-    <!-- SheetJS (xlsx library สำหรับอ่านไฟล์ Excel ในเบราว์เซอร์) -->
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
     <script>
         tailwind.config = {
@@ -66,14 +63,12 @@
                 width: 100% !important;
             }
 
-            body > *:not(#rawListModal):not(#auditLogModal):not(#printDocModal):not(#excelImportModal):not(main) {
+            body > *:not(#rawListModal):not(#auditLogModal):not(#detailModal):not(main) {
                 display: none !important;
             }
 
             #rawListModal:not(.hidden),
-            #auditLogModal:not(.hidden),
-            #printDocModal:not(.hidden),
-            #excelImportModal:not(.hidden) {
+            #auditLogModal:not(.hidden) {
                 display: block !important;
                 position: static !important;
                 left: auto !important;
@@ -92,8 +87,8 @@
             #rawListModal .overflow-y-auto,
             #auditLogModal .bg-white,
             #auditLogModal .overflow-y-auto,
-            #rawListContainer, #auditLogContainer, #printAreaContainer,
-            #rawListPrintArea, #auditLogPrintArea, #printArea {
+            #rawListContainer, #auditLogContainer,
+            #rawListPrintArea, #auditLogPrintArea {
                 position: static !important;
                 width: 100% !important;
                 max-width: 100% !important;
@@ -165,86 +160,37 @@
 </head>
 <body class="h-full text-slate-800 font-sans antialiased overflow-hidden flex flex-col bg-slate-100" onclick="closeContextMenu()">
 
-    <!-- Toast Notification -->
-    <div id="toastContainer" class="fixed top-20 right-6 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none no-print"></div>
-
-    <!-- Active Transfer Bar -->
-    <div id="activeTransferBar" class="hidden bg-slate-900/95 backdrop-blur-md text-white border-b border-emerald-500/30 px-6 py-3 shadow-xl z-40 shrink-0 transition-all no-print">
-        <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
-            <div class="flex items-center gap-3 flex-1 min-w-0">
-                <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-rose-500 to-pink-500 text-white font-bold flex items-center justify-center text-xs shadow-lg animate-bounce">
-                    <i class="fa-solid fa-gift"></i>
-                </div>
-                <div class="truncate">
-                    <span class="text-[10px] text-pink-400 font-bold uppercase tracking-wider block">กำลังเตรียมโอนงบประมาณ</span>
-                    <h4 class="font-semibold text-xs text-slate-100 truncate" id="sourcePrjTitle">ชื่อรายการ...</h4>
-                </div>
-            </div>
-            <div class="flex items-center gap-3 font-mono text-xs">
-                <span class="text-slate-400">วันที่อนุมัติ:</span>
-                <span class="text-amber-400 font-bold" id="activeTransferDateDisplay">--/--/----</span>
-                <span class="text-slate-400 ml-2">จำนวนโอน:</span>
-                <span class="px-3 py-1 bg-rose-500/20 text-rose-300 rounded-lg border border-rose-500/30 font-bold text-sm" id="activeAmountDisplay">0.00 ฿</span>
-            </div>
-            <div class="flex items-center gap-2">
-                <button onclick="cancelPairing()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-xl transition-all">ยกเลิก</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Context Menu -->
+    <!-- Context Menu (แสดงเฉพาะตัวเลือกดูคำชี้แจงและประวัติ) -->
     <div id="contextMenu" class="fixed bg-white/95 backdrop-blur-md border border-slate-100 rounded-2xl shadow-2xl z-50 py-2 w-64 hidden text-xs font-sans no-print">
         <div class="px-4 py-2 border-b border-slate-100 font-bold text-slate-400 text-[10px] flex justify-between items-center">
             <span id="ctxProjectCode" class="font-mono text-emerald-700">PRJ-2570-000</span>
-            <span class="text-emerald-600 font-semibold"><i class="fa-solid fa-layer-group"></i> Budget Menu</span>
+            <span class="text-emerald-600 font-semibold"><i class="fa-solid fa-eye"></i> Executive Menu</span>
         </div>
         <button onclick="handleCtxAction('VIEW')" class="w-full text-left px-4 py-2.5 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 flex items-center gap-3 font-medium transition-all">
             <i class="fa-solid fa-file-lines text-emerald-500 text-sm"></i>
             <span>1. ดูคำชี้แจงงบประมาณ</span>
         </button>
-        <button onclick="handleCtxAction('TRANSFER_OUT')" class="w-full text-left px-4 py-2.5 hover:bg-rose-50 text-slate-700 hover:text-rose-600 flex items-center gap-3 font-medium transition-all admin-only-action">
-            <i class="fa-solid fa-hand-holding-dollar text-rose-500 text-sm"></i>
-            <span>2. โอนลด (ระบุยอดเงินโอน 🎁)</span>
-        </button>
-        <button onclick="handleCtxAction('TRANSFER_IN')" class="w-full text-left px-4 py-2.5 hover:bg-emerald-50 text-slate-700 hover:text-emerald-600 flex items-center gap-3 font-medium transition-all admin-only-action">
-            <i class="fa-solid fa-box-open text-emerald-500 text-sm"></i>
-            <span>3. รับโอนเพิ่ม (รายการเดิม)</span>
-        </button>
-        <button onclick="handleCtxAction('CREATE_NEW_ITEM')" class="w-full text-left px-4 py-2.5 hover:bg-purple-50 text-slate-700 hover:text-purple-700 flex items-center gap-3 font-medium transition-all admin-only-action">
-            <i class="fa-solid fa-folder-plus text-purple-600 text-sm"></i>
-            <span>4. โอนตั้งเป็นรายการใหม่ ✨</span>
-        </button>
-        <button onclick="handleCtxAction('EDIT_NAME')" class="w-full text-left px-4 py-2.5 hover:bg-blue-50 text-slate-700 hover:text-blue-700 flex items-center gap-3 font-medium transition-all admin-only-action">
-            <i class="fa-solid fa-pen-to-square text-blue-500 text-sm"></i>
-            <span>5. แก้ไขชื่อรายการ/หมวดงบ ✏️</span>
-        </button>
         <button onclick="handleCtxAction('PROJECT_HISTORY')" class="w-full text-left px-4 py-2.5 hover:bg-amber-50 text-slate-700 hover:text-amber-700 flex items-center gap-3 font-medium transition-all">
             <i class="fa-solid fa-clock-rotate-left text-amber-500 text-sm"></i>
-            <span>6. ตรวจสอบประวัติการโอน 📜</span>
-        </button>
-        <div class="my-1 border-t border-slate-100 admin-only-action"></div>
-        <button onclick="handleCtxAction('DELETE_ITEM')" class="w-full text-left px-4 py-2.5 hover:bg-rose-50 text-rose-600 hover:text-rose-700 flex items-center gap-3 font-medium transition-all admin-only-action">
-            <i class="fa-solid fa-trash-can text-rose-500 text-sm"></i>
-            <span>7. ลบรายการนี้ออกจากระบบ 🗑️</span>
+            <span>2. ตรวจสอบประวัติการโอน 📜</span>
         </button>
     </div>
 
-    <!-- Header Navigation -->
+    <!-- Header Navigation (คงโครงสร้าง UI เดิม ถอดเฉพาะปุ่มแก้ไข) -->
     <header class="bg-white/90 backdrop-blur-md border-b border-slate-200/80 shadow-sm z-30 shrink-0 no-print">
         <div class="max-w-7xl mx-auto px-6 py-2.5 flex items-center justify-between gap-6">
             <div class="flex items-center gap-3 shrink-0">
                 <img src="KPLOGO.jpg" alt="ตรา อบต.ข่วงเปา" class="w-11 h-11 object-contain drop-shadow-sm rounded-full bg-white p-0.5 border border-slate-200">
                 <div>
-                    <h1 class="font-bold text-base text-slate-900 leading-tight" id="orgNameTitle">องค์การบริหารส่วนตำบลข่วงเปา - ข้อบัญญัติงบประมาณ 2570</h1>
+                    <h1 class="font-bold text-base text-slate-900 leading-tight">
+                        องค์การบริหารส่วนตำบลข่วงเปา - ข้อบัญญัติงบประมาณ 2570
+                        <span class="text-xs bg-amber-500 text-slate-900 px-2.5 py-0.5 rounded-full font-bold ml-2 shadow-xs">👁️ โหมดผู้บริหาร (Read-Only)</span>
+                    </h1>
                     <p class="text-[11px] text-slate-500 font-medium">Executive A4 Continuous Budget Notebook (อำเภอจอมทอง จังหวัดเชียงใหม่)</p>
                 </div>
             </div>
 
             <div class="flex items-center gap-2.5 font-mono text-xs">
-                <button onclick="openExcelImportModal()" class="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white font-sans font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5 active:scale-95 shrink-0 admin-only-action">
-                    <i class="fa-solid fa-file-excel"></i> นำเข้าไฟล์โอนงบ (Excel)
-                </button>
-
                 <button onclick="openAuditLogModal()" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-900 font-sans font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5 active:scale-95 shrink-0">
                     <i class="fa-solid fa-clock-rotate-left"></i> ประวัติการโอนงบ (Audit Log)
                 </button>
@@ -253,9 +199,6 @@
                     <i class="fa-solid fa-print"></i> พิมพ์ List รายจ่าย
                 </button>
 
-                <button onclick="saveCurrentBudgetState()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-sans font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5 active:scale-95 admin-only-action">
-                    <i class="fa-solid fa-floppy-disk"></i> บันทึกข้อมูล
-                </button>
                 <span id="dbStatusBadge" class="flex items-center gap-2 bg-amber-50 text-amber-700 px-3 py-1.5 rounded-xl border border-amber-200 font-sans font-medium">
                     <span class="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
                     <span>กำลังโหลด...</span>
@@ -276,7 +219,7 @@
         </div>
     </header>
 
-    <!-- Main Content Area -->
+    <!-- Main Content Area (ดีไซน์เดิม 100%) -->
     <div class="flex-1 overflow-hidden flex relative">
         <main class="flex-1 overflow-y-auto p-6 md:p-10 custom-scrollbar space-y-6" id="paperTrack">
             <div class="max-w-[820px] mx-auto no-print">
@@ -291,7 +234,7 @@
             </div>
         </main>
 
-        <!-- Right Activity Sidebar -->
+        <!-- Right Activity Sidebar (คงแถบสรุปยอดและประวัติโอนงบ ถอดเฉพาะปุ่มแก้ไข) -->
         <aside class="hidden xl:block w-80 p-6 bg-white border-l border-slate-200/80 overflow-y-auto custom-scrollbar shrink-0 space-y-6 no-print">
             <div class="flex items-center justify-between">
                 <div>
@@ -300,14 +243,6 @@
                         <span>ภาพรวมงบประมาณ</span>
                     </h3>
                     <p class="text-[11px] text-slate-400">อัปเดต Realtime จากการโอนงบ</p>
-                </div>
-                <div class="flex items-center gap-1.5 admin-only-action">
-                    <button onclick="saveCurrentBudgetState()" title="Save Data" class="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold transition-all shadow-sm">
-                        <i class="fa-solid fa-floppy-disk"></i>
-                    </button>
-                    <button onclick="resetAllBudgets()" title="Reset All Data" class="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold transition-all shadow-sm">
-                        <i class="fa-solid fa-rotate-left"></i>
-                    </button>
                 </div>
             </div>
 
@@ -332,66 +267,7 @@
         </aside>
     </div>
 
-    <!-- Modal: Modal โอนเงินงบประมาณ -->
-    <div id="transferAmountModal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden no-print">
-        <div class="bg-slate-900 text-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-800 space-y-4 font-sans relative overflow-hidden">
-            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-rose-500 to-pink-500 flex items-center justify-center font-bold text-lg shadow-lg shadow-rose-500/30">
-                        <i class="fa-solid fa-gift"></i>
-                    </div>
-                    <div>
-                        <h3 class="font-bold text-sm text-slate-100">โอนลดงบประมาณ</h3>
-                        <p class="text-[10px] text-slate-400 font-mono" id="modalSourcePrjId">PRJ-2570-000</p>
-                    </div>
-                </div>
-                <button onclick="closeModal('transferAmountModal')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
-            </div>
-
-            <div class="space-y-3">
-                <div>
-                    <span class="text-[11px] text-slate-400 block mb-1">รายการต้นทางที่จะโอนลด:</span>
-                    <div id="modalSourcePrjName" class="p-3 bg-slate-800/80 rounded-2xl text-xs font-semibold text-slate-200 border border-slate-700/60"></div>
-                </div>
-
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="text-[11px] font-bold text-slate-300 block mb-1"><i class="fa-solid fa-calendar-days text-amber-400"></i> วันที่อนุมัติโอน:</label>
-                        <input type="text" id="transferApprovedDateInput" placeholder="เช่น 22/10/2569" class="w-full px-3 py-2 bg-slate-950 text-amber-300 font-mono text-xs rounded-xl border border-slate-700 focus:border-amber-500 focus:outline-none">
-                    </div>
-                    <div>
-                        <span class="text-[11px] text-slate-400 block mb-1">งบประมาณคงเหลือ:</span>
-                        <div class="p-2 bg-slate-800/40 rounded-xl border border-slate-800 font-mono font-bold text-emerald-400 text-xs text-right" id="modalSourceMaxAmount">0.00 ฿</div>
-                    </div>
-                </div>
-
-                <div>
-                    <label class="text-xs font-bold text-slate-300 block mb-1.5">กรอกจำนวนเงินที่ต้องการโอนลด (บาท):</label>
-                    <div class="relative">
-                        <input type="number" id="transferAmountInput" oninput="validateTransferAmount()" placeholder="0.00" class="w-full pl-4 pr-12 py-2.5 bg-slate-950 text-rose-400 font-mono text-lg font-bold rounded-2xl border border-slate-700 focus:border-rose-500 focus:outline-none transition-all">
-                        <span class="absolute right-4 top-3 font-bold text-xs text-slate-500">บาท</span>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-4 gap-2">
-                    <button onclick="setQuickAmount(10000)" class="py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-mono rounded-xl border border-slate-700 transition-all">+10k</button>
-                    <button onclick="setQuickAmount(50000)" class="py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-mono rounded-xl border border-slate-700 transition-all">+50k</button>
-                    <button onclick="setQuickAmount(100000)" class="py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-mono rounded-xl border border-slate-700 transition-all">+100k</button>
-                    <button onclick="setMaxAmount()" class="py-1.5 bg-rose-600/30 hover:bg-rose-600/50 text-rose-300 text-[11px] font-bold rounded-xl border border-rose-500/30 transition-all">MAX</button>
-                </div>
-            </div>
-
-            <div class="pt-2 flex items-center gap-3">
-                <button onclick="closeModal('transferAmountModal')" class="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-2xl transition-all">ยกเลิก</button>
-                <button onclick="confirmTransferAmount()" class="flex-1 py-2.5 bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white text-xs font-bold rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2">
-                    <span>ถัดไป: เลือกปลายทาง</span>
-                    <i class="fa-solid fa-arrow-right"></i>
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modals: Audit Log -->
+    <!-- Modals: Audit Log (ศูนย์พิมพ์ประวัติสำหรับผู้บริหาร) -->
     <div id="auditLogModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
         <div class="bg-white rounded-3xl max-w-4xl w-full h-[90vh] flex flex-col shadow-2xl border border-slate-100 font-sans overflow-hidden">
             <div class="p-4 px-6 border-b border-slate-200 bg-slate-50 flex items-center justify-between shrink-0 no-print">
@@ -413,155 +289,7 @@
         </div>
     </div>
 
-    <!-- Modals: Print Document -->
-    <div id="printDocModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
-        <div class="bg-white rounded-3xl max-w-4xl w-full h-[90vh] flex flex-col shadow-2xl border border-slate-100 font-sans overflow-hidden">
-            <div class="flex items-center justify-between p-4 px-6 border-b border-slate-200 bg-slate-50 shrink-0 no-print">
-                <div class="flex items-center gap-3">
-                    <img src="KPLOGO.jpg" alt="ตรา อบต." class="w-8 h-8 object-contain">
-                    <div>
-                        <h3 class="font-bold text-slate-900 text-sm" id="docModalTitle">แบบขออนุมัติโอน/แก้ไขเปลี่ยนแปลงงบประมาณ</h3>
-                        <p class="text-[11px] text-slate-500">จัดทำเอกสารราชการอัตโนมัติ (อำเภอจอมทอง จังหวัดเชียงใหม่)</p>
-                    </div>
-                </div>
-                <div class="flex items-center gap-2">
-                    <button onclick="triggerPrintWithReset('printDocModal')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow transition-all flex items-center gap-2"><i class="fa-solid fa-print"></i> พิมพ์เอกสาร</button>
-                    <button onclick="closeModal('printDocModal')" class="text-slate-400 hover:text-slate-600 p-2"><i class="fa-solid fa-xmark text-lg"></i></button>
-                </div>
-            </div>
-            <div class="flex-1 overflow-y-auto p-8 custom-scrollbar bg-slate-200/50" id="printAreaContainer">
-                <div id="printArea" class="bg-white p-10 max-w-[794px] mx-auto font-sarabun text-slate-900 text-sm space-y-6"></div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal: นำเข้าไฟล์โอนงบอัตโนมัติผ่าน Excel -->
-    <div id="excelImportModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden no-print">
-        <div class="bg-white rounded-3xl max-w-4xl w-full h-[90vh] flex flex-col shadow-2xl border border-slate-100 font-sans overflow-hidden">
-            <div class="p-4 px-6 border-b border-slate-200 bg-slate-50 flex items-center justify-between shrink-0">
-                <div class="flex items-center gap-3">
-                    <div class="w-9 h-9 rounded-2xl bg-purple-600 text-white flex items-center justify-center font-bold text-sm shadow-md">
-                        <i class="fa-solid fa-file-excel"></i>
-                    </div>
-                    <div>
-                        <h3 class="font-bold text-slate-900 text-sm">ระบบนำเข้าบัญชีโอนงบประมาณอัตโนมัติ (Excel Importer)</h3>
-                        <p class="text-[11px] text-slate-500">อัปโหลดไฟล์ Excel บัญชีโอนงบเพื่อตรวจสอบและบันทึกลงระบบในคลิกเดียว</p>
-                    </div>
-                </div>
-                <button onclick="closeModal('excelImportModal')" class="text-slate-400 hover:text-slate-600 p-2"><i class="fa-solid fa-xmark text-lg"></i></button>
-            </div>
-
-            <div class="flex-1 overflow-y-auto p-6 custom-scrollbar bg-slate-50 space-y-4">
-                <div class="border-2 border-dashed border-purple-300 bg-purple-50/50 rounded-3xl p-8 text-center space-y-3 hover:bg-purple-50 transition-all cursor-pointer relative">
-                    <input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv" onchange="handleExcelFileSelect(event)" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full">
-                    <div class="w-12 h-12 rounded-2xl bg-purple-100 text-purple-600 mx-auto flex items-center justify-center text-xl shadow-sm">
-                        <i class="fa-solid fa-cloud-arrow-up"></i>
-                    </div>
-                    <div>
-                        <h4 class="font-bold text-slate-800 text-sm">คลิกเพื่อเลือกไฟล์ Excel หรือลากไฟล์มาวางที่นี่</h4>
-                        <p class="text-xs text-slate-500 mt-0.5">รองรับไฟล์ `.xlsx` (เช่น โอนงบประมาณ ครั้งที่ 2.xlsx)</p>
-                    </div>
-                    <span id="selectedFileName" class="inline-block px-3 py-1 bg-purple-200 text-purple-800 rounded-xl text-xs font-bold hidden">ยังไม่ได้เลือกไฟล์</span>
-                </div>
-
-                <div id="excelPreviewContainer" class="hidden space-y-3">
-                    <div class="flex justify-between items-center">
-                        <h4 class="font-bold text-slate-800 text-xs flex items-center gap-1.5">
-                            <i class="fa-solid fa-list-check text-purple-600"></i> ตรวจพบรายการโอนในไฟล์ (<span id="parsedPairsCount">0</span> คู่โอน)
-                        </h4>
-                        <span class="text-xs text-emerald-700 font-bold bg-emerald-50 px-2.5 py-1 rounded-xl border border-emerald-200" id="parsedTotalAmount">ยอดโอนรวม: 0.00 ฿</span>
-                    </div>
-
-                    <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-                        <table class="w-full text-xs border-collapse">
-                            <thead>
-                                <tr class="bg-slate-100 text-slate-700 font-bold text-center">
-                                    <th class="p-2 border-b border-slate-200 w-12">คู่ที่</th>
-                                    <th class="p-2 border-b border-slate-200 text-left">🔴 โอนลด (ต้นทาง)</th>
-                                    <th class="p-2 border-b border-slate-200 text-left">🟢 โอนเพิ่ม / ตั้งรายการใหม่ (ปลายทาง)</th>
-                                    <th class="p-2 border-b border-slate-200 text-right w-28">จำนวนเงิน (บาท)</th>
-                                </tr>
-                            </thead>
-                            <tbody id="excelPreviewTableBody"></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <div class="p-4 px-6 border-t border-slate-200 bg-white flex items-center justify-between shrink-0">
-                <span class="text-xs text-slate-500" id="importStatusText">กรุณาอัปโหลดไฟล์ Excel เพื่อเริ่มต้น</span>
-                <div class="flex items-center gap-2">
-                    <button onclick="closeModal('excelImportModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all">ยกเลิก</button>
-                    <button id="confirmImportBtn" onclick="executeExcelBatchImport()" class="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-                        <i class="fa-solid fa-check-double"></i> ยืนยันบันทึกเข้าระบบ Firebase
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal: สร้างรายการใหม่ -->
-    <div id="createNewItemModal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden no-print">
-        <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4 font-sans relative">
-            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center font-bold text-base"><i class="fa-solid fa-folder-plus"></i></div>
-                    <div>
-                        <h3 class="font-bold text-slate-900 text-sm">โอนตั้งเป็นรายการใหม่ (ตามข้อ 26/27)</h3>
-                        <p class="text-[11px] text-slate-500">รับโอนยอดจากรายการต้นทางมาสร้างรายการใหม่</p>
-                    </div>
-                </div>
-                <button onclick="closeModal('createNewItemModal')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
-            </div>
-            <div class="space-y-3 text-xs">
-                <div class="p-3 bg-purple-50 rounded-2xl border border-purple-200/80 flex justify-between items-center">
-                    <span class="text-purple-700 font-semibold">ยอดเงินที่จะตั้งใหม่:</span>
-                    <span class="font-mono font-bold text-purple-700 text-base" id="newItemTransferAmt">0.00 ฿</span>
-                </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="font-bold text-slate-700 block mb-1">แผนงาน:</label>
-                        <select id="newItemPlan" onchange="updateJobDropdownByPlan(this.value)" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:border-purple-500 font-medium"></select>
-                    </div>
-                    <div>
-                        <label class="font-bold text-slate-700 block mb-1">งาน (ย่อย):</label>
-                        <select id="newItemJob" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:border-purple-500 font-medium"></select>
-                    </div>
-                </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="font-bold text-slate-700 block mb-1">งบ/หมวดรายจ่าย:</label>
-                        <select id="newItemCategory" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:border-purple-500 font-medium">
-                            <option value="งบบุคลากร">งบบุคลากร</option>
-                            <option value="งบดำเนินงาน">งบดำเนินงาน</option>
-                            <option value="งบลงทุน">งบลงทุน</option>
-                            <option value="งบเงินอุดหนุน">งบเงินอุดหนุน</option>
-                            <option value="งบรายจ่ายอื่น">งบรายจ่ายอื่น</option>
-                            <option value="งบกลาง">งบกลาง</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="font-bold text-slate-700 block mb-1">รหัสรายการใหม่ (ID):</label>
-                        <input type="text" id="newItemId" class="w-full p-2.5 bg-slate-100 border border-slate-200 rounded-xl font-mono text-slate-600 font-bold" readonly>
-                    </div>
-                </div>
-                <div>
-                    <label class="font-bold text-slate-700 block mb-1">ชื่อรายการใหม่:</label>
-                    <input type="text" id="newItemName" placeholder="เช่น เงินเพิ่มต่าง ๆ ของพนักงานจ้าง" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:border-purple-500 font-medium">
-                </div>
-                <div>
-                    <label class="font-bold text-slate-700 block mb-1">คำชี้แจงการตั้งรายการใหม่:</label>
-                    <textarea id="newItemNote" rows="2" placeholder="ระบุเหตุผลความจำเป็น..." class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:border-purple-500 font-sarabun"></textarea>
-                </div>
-            </div>
-            <div class="pt-2 flex items-center gap-3">
-                <button onclick="closeModal('createNewItemModal')" class="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-2xl transition-all">ยกเลิก</button>
-                <button onclick="saveAndExecuteNewItemTransfer()" class="flex-1 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-bold rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2"><i class="fa-solid fa-check-double"></i><span>ยืนยันตั้งรายการใหม่</span></button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal: ดูรายละเอียดโครงการ -->
+    <!-- Modal: ดูรายละเอียดโครงการ (Read-Only Mode) -->
     <div id="detailModal" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden no-print">
         <div class="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-slate-100 space-y-5 font-sans">
             <div class="flex items-center justify-between pb-3 border-b border-slate-100">
@@ -577,7 +305,7 @@
             <div class="space-y-4 text-xs">
                 <div>
                     <label class="font-bold text-slate-700 block mb-1.5">ชื่อรายการงบประมาณ:</label>
-                    <input type="text" id="modalProjectNameInput" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl font-sans text-xs text-slate-900 font-bold focus:bg-white focus:border-emerald-500 focus:outline-none transition-all">
+                    <div id="modalProjectNameDisplay" class="p-3 bg-slate-50 border border-slate-200 rounded-2xl font-sans text-xs text-slate-900 font-bold"></div>
                 </div>
                 <div>
                     <label class="font-bold text-slate-700 block mb-1.5">สังกัดส่วนราชการ / แผนงาน:</label>
@@ -589,17 +317,16 @@
                 </div>
                 <div>
                     <label class="font-bold text-slate-700 block mb-1.5">คำชี้แจงงบประมาณ:</label>
-                    <textarea id="modalProjectNote" rows="3" class="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-sarabun text-sm text-slate-800 focus:bg-white focus:border-emerald-500 focus:outline-none transition-all"></textarea>
+                    <div id="modalProjectNoteDisplay" class="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-sarabun text-sm text-slate-800 leading-relaxed min-h-[80px]"></div>
                 </div>
             </div>
-            <div class="pt-2 flex items-center gap-3">
-                <button onclick="closeModal('detailModal')" class="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-2xl transition-all">ปิด</button>
-                <button onclick="saveProjectNote()" class="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-2xl shadow-lg transition-all admin-only-action">บันทึกข้อมูล</button>
+            <div class="pt-2 flex items-center justify-end">
+                <button onclick="closeModal('detailModal')" class="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-2xl transition-all">ปิดหน้าต่าง</button>
             </div>
         </div>
     </div>
 
-    <!-- Modal ศูนย์สั่งพิมพ์ Print Hub -->
+    <!-- Modal ศูนย์สั่งพิมพ์ Print Hub (ดีไซน์เดิม 100%) -->
     <div id="rawListModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
         <div class="bg-white rounded-3xl max-w-4xl w-full h-[90vh] flex flex-col shadow-2xl border border-slate-100 font-sans overflow-hidden">
             <div class="p-4 px-6 border-b border-slate-200 bg-slate-50 flex items-center justify-between shrink-0 no-print">
@@ -635,6 +362,7 @@
         </div>
     </div>
 
+    <!-- JavaScript Read-Only Logic -->
     <script>
         const firebaseConfig = {
             apiKey: "AIzaSyAEPVlZTTulr5Z5i8ISGeJZ35UVzLtNKR4",
@@ -668,62 +396,35 @@
 
         let allProjects = {};
         let activeSelectedPrjId = null;
-        let activeSourcePrjId = null;
-        let activeTransferAmount = 0;
-        let activeTransferDate = "";
-        let recentTransfers = {};
         let transferLogsList = [];
         let currentSelectedPlan = 'แผนงานบริหารงานทั่วไป';
         let currentSelectedJob = 'all';
         let currentSelectedCategory = 'all';
         let currentSelectedSubType = 'all';
-        let parsedExcelBatchData = [];
 
-        // 🌟 ตรวจสอบโหมดผู้บริหาร (Executive Read-Only Guard ผ่าน URL Query เช่น ?mode=exec หรือ ?view=readonly)
-        const urlParams = new URLSearchParams(window.location.search);
-        const isExecutiveView = urlParams.get('mode') === 'exec' || urlParams.get('view') === 'readonly';
+        // อ่านข้อมูลแบบ Realtime Sync ดึงภาพรวมงบประมาณล่าสุด
+        db.ref().on('value', snapshot => {
+            const data = snapshot.val() || {};
+            allProjects = data.projects || {};
+            const historyData = data.transfer_history || {};
 
-        Promise.all([
-            db.ref('/projects').once('value'),
-            db.ref('/transfer_history').once('value')
-        ]).then(([prjSnap, historySnap]) => {
-            const projectsData = prjSnap.val() || {};
-            const historyData = historySnap.val() || {};
-
-            allProjects = projectsData;
             transferLogsList = Object.keys(historyData).map(k => ({ firebaseKey: k, ...historyData[k] })).sort((a, b) => a.transfer_no - b.transfer_no);
 
             const totalCount = Object.keys(allProjects).length;
             const badge = document.getElementById('dbStatusBadge');
             badge.className = "flex items-center gap-2 bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-xl border border-emerald-200/80 font-sans font-medium";
-            badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span><span>Firebase Ready (${totalCount} รายการ)</span>`;
+            badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span><span>Firebase Realtime (${totalCount} รายการ)</span>`;
 
             calculateSummary(allProjects);
             renderSidebarTransferLogs();
-            initModalDropdowns();
             renderDynamicA4Pages(allProjects, currentSelectedPlan, currentSelectedJob, currentSelectedCategory, currentSelectedSubType);
             enableHorizontalScrollForNavs();
-
-            // 🛡️ หากเป็นมุมมองผู้บริหาร ให้ซ่อนปุ่มแก้ไข/โอนทันที
-            if (isExecutiveView) {
-                applyExecutiveGuardrail();
-            }
-        }).catch((err) => {
-            console.error("Firebase error:", err);
+        }, error => {
+            console.error("Firebase error:", error);
             const badge = document.getElementById('dbStatusBadge');
             badge.className = "flex items-center gap-2 bg-rose-50 text-rose-700 px-3 py-1.5 rounded-xl border border-rose-200 font-sans font-medium";
             badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-500"></span><span>โหลดล้มเหลว</span>`;
-            showToast('error', 'เกิดข้อผิดพลาดในการโหลดข้อมูล: ' + err.message);
         });
-
-        function applyExecutiveGuardrail() {
-            document.querySelectorAll('.admin-only-action').forEach(el => el.remove());
-            const titleEl = document.getElementById('orgNameTitle');
-            if (titleEl) {
-                titleEl.innerHTML += ` <span class="text-xs bg-amber-500 text-slate-900 px-2 py-0.5 rounded-full font-bold ml-2">👁️ โหมดผู้บริหาร (Read-Only)</span>`;
-            }
-            console.log("🛡️ Executive Read-Only Guard Active: ล็อกสิทธิ์การแก้ไขและการโอนงบประมาณเรียบร้อย");
-        }
 
         function enableHorizontalScrollForNavs() {
             const navIds = ['planNavTrack', 'jobNavTrack', 'categoryNavTrack', 'subTypeNavTrack'];
@@ -747,23 +448,6 @@
                 if (scrollableDiv) scrollableDiv.scrollTop = 0;
             }
             window.print();
-        }
-
-        function saveCurrentBudgetState() {
-            if (isExecutiveView) return;
-            if (!allProjects || Object.keys(allProjects).length === 0) {
-                showToast('error', 'ไม่มีข้อมูลสำหรับบันทึก');
-                return;
-            }
-            const updates = {};
-            updates['last_saved_timestamp'] = new Date().toISOString();
-            updates['projects'] = allProjects;
-
-            db.ref().update(updates).then(() => {
-                showToast('success', '💾 บันทึกข้อมูลงบประมาณล่าสุดเข้าสู่ Firebase เรียบร้อยแล้ว!');
-            }).catch((error) => {
-                showToast('error', 'เกิดข้อผิดพลาดในการบันทึกข้อมูล: ' + error.message);
-            });
         }
 
         function calculateSummary(projects) {
@@ -814,68 +498,13 @@
             }
         }
 
-        function initModalDropdowns() {
-            const planSelect = document.getElementById('newItemPlan');
-            if (planSelect && planSelect.children.length === 0) {
-                planSelect.innerHTML = '';
-                Object.keys(planJobMapping).forEach(p => {
-                    const opt = document.createElement('option');
-                    opt.value = p; opt.innerText = p;
-                    planSelect.appendChild(opt);
-                });
-                updateJobDropdownByPlan(Object.keys(planJobMapping)[0]);
-            }
-        }
-
-        function updateJobDropdownByPlan(selectedPlan) {
-            const jobSelect = document.getElementById('newItemJob');
-            if (!jobSelect) return;
-            jobSelect.innerHTML = '';
-            const jobs = planJobMapping[selectedPlan] || [];
-            jobs.forEach(j => {
-                const opt = document.createElement('option');
-                opt.value = j; opt.innerText = j;
-                jobSelect.appendChild(opt);
-            });
-        }
-
-        function resetAllBudgets() {
-            if (isExecutiveView) return;
-            if (!confirm("คุณต้องการรีเซ็ตข้อมูลงบประมาณและลบรายการที่ตั้งใหม่ทั้งหมด ให้กลับเป็นรายการตั้งต้นเดิมใช่หรือไม่?")) return;
-
-            const cleanProjects = {};
-            Object.keys(allProjects).forEach(id => {
-                const item = allProjects[id];
-                if (!item.is_new_item && !id.includes('NEW')) {
-                    const initial = item.initial_budget || item.amount || 0;
-                    item.current_budget = initial;
-                    cleanProjects[id] = item;
-                }
-            });
-
-            const updates = {};
-            updates['projects'] = cleanProjects;
-            updates['transfer_history'] = null;
-
-            allProjects = cleanProjects;
-            recentTransfers = {};
-            transferLogsList = [];
-
-            db.ref().update(updates).then(() => {
-                showToast('success', '🧹 รีเซ็ตข้อมูลงบประมาณกลับเป็นรายการตั้งต้นเรียบร้อยแล้ว!');
-                renderSidebarTransferLogs();
-                calculateSummary(allProjects);
-                renderDynamicA4Pages(allProjects, currentSelectedPlan, currentSelectedJob, currentSelectedCategory, currentSelectedSubType);
-            });
-        }
-
         function openContextMenu(event, prjId) {
             event.preventDefault();
             activeSelectedPrjId = prjId;
             const menu = document.getElementById('contextMenu');
             document.getElementById('ctxProjectCode').innerText = prjId;
             menu.style.left = `${Math.min(event.clientX, window.innerWidth - 260)}px`;
-            menu.style.top = `${Math.min(event.clientY, window.innerHeight - 320)}px`;
+            menu.style.top = `${Math.min(event.clientY, window.innerHeight - 200)}px`;
             menu.classList.remove('hidden');
         }
 
@@ -889,112 +518,26 @@
             if (!activeSelectedPrjId || !allProjects[activeSelectedPrjId]) return;
             const item = allProjects[activeSelectedPrjId];
 
-            if (actionType === 'TRANSFER_OUT') {
-                if (isExecutiveView) return;
-                activeSourcePrjId = activeSelectedPrjId;
-                document.getElementById('modalSourcePrjId').innerText = activeSourcePrjId;
-                document.getElementById('modalSourcePrjName').innerText = item.project_name;
-                document.getElementById('modalSourceMaxAmount').innerText = `${(item.current_budget || 0).toLocaleString()} ฿`;
-                document.getElementById('transferAmountInput').value = '';
-                
-                const todayTh = new Date().toLocaleDateString('th-TH');
-                document.getElementById('transferApprovedDateInput').value = todayTh;
-                
-                document.getElementById('transferAmountModal').classList.remove('hidden');
-
-            } else if (actionType === 'TRANSFER_IN') {
-                if (isExecutiveView) return;
-                if (!activeSourcePrjId || activeTransferAmount <= 0) {
-                    showToast('error', 'กรุณากำหนดรายการโอนลดและจำนวนเงินก่อนครับ');
-                    return;
-                }
-                triggerIncomingTransferPrompt(activeSelectedPrjId);
-
-            } else if (actionType === 'CREATE_NEW_ITEM') {
-                if (isExecutiveView) return;
-                if (!activeSourcePrjId || activeTransferAmount <= 0) {
-                    showToast('error', 'กรุณาเลือกรายการโอนลดและระบุยอดเงินก่อนตั้งรายการใหม่ครับ');
-                    return;
-                }
-                const newRandomId = `PRJ-2570-NEW-${Math.floor(1000 + Math.random() * 9000)}`;
-                document.getElementById('newItemId').value = newRandomId;
-                document.getElementById('newItemTransferAmt').innerText = `${activeTransferAmount.toLocaleString('th-TH', {minimumFractionDigits: 2})} ฿`;
-                
-                const planSel = document.getElementById('newItemPlan');
-                if (planJobMapping[item.plan]) {
-                    planSel.value = item.plan;
-                    updateJobDropdownByPlan(item.plan);
-                    const jobSel = document.getElementById('newItemJob');
-                    if (item.job) jobSel.value = item.job;
-                }
-                document.getElementById('createNewItemModal').classList.remove('hidden');
-
-            } else if (actionType === 'PROJECT_HISTORY') {
+            if (actionType === 'PROJECT_HISTORY') {
                 showProjectHistoryModal(activeSelectedPrjId);
-
-            } else if (actionType === 'EDIT_NAME' || actionType === 'VIEW') {
+            } else if (actionType === 'VIEW') {
                 document.getElementById('modalProjectName').innerText = item.project_name;
-                document.getElementById('modalProjectNameInput').value = item.project_name;
+                document.getElementById('modalProjectNameDisplay').innerText = item.project_name;
                 document.getElementById('modalProjectCode').innerText = activeSelectedPrjId;
                 document.getElementById('modalProjectCategory').innerText = `${item.plan} ➔ ${item.job || 'งานทั่วไป'} ➔ ${item.budget_group || 'งบประมาณ'}`;
-                document.getElementById('modalProjectNote').value = item.note || `คำชี้แจงงบประมาณสำหรับ ${item.project_name}`;
+                document.getElementById('modalProjectNoteDisplay').innerText = item.note || `คำชี้แจงงบประมาณสำหรับ ${item.project_name}`;
                 document.getElementById('modalHistorySection').classList.add('hidden');
                 document.getElementById('detailModal').classList.remove('hidden');
-                if (actionType === 'EDIT_NAME' && !isExecutiveView) {
-                    setTimeout(() => document.getElementById('modalProjectNameInput').focus(), 150);
-                }
-
-            } else if (actionType === 'DELETE_ITEM') {
-                if (isExecutiveView) return;
-                const currentBal = item.current_budget || item.amount || 0;
-                let confirmMsg = `คุณต้องการลบรายการ "${item.project_name}" (รหัส: ${activeSelectedPrjId}) ออกจากฐานข้อมูลใช่หรือไม่?`;
-                if (currentBal > 0) {
-                    confirmMsg = `⚠️ เตือน: รายการนี้ยังมีงบประมาณคงเหลือ ${currentBal.toLocaleString()} บาท!\n\nคุณแน่ใจหรือไม่ที่จะลบรายการนี้ออกจากฐานข้อมูล?`;
-                }
-
-                if (!confirm(confirmMsg)) return;
-
-                db.ref(`projects/${activeSelectedPrjId}`).remove().then(() => {
-                    delete allProjects[activeSelectedPrjId];
-                    showToast('success', `🗑️ ลบรายการ ${activeSelectedPrjId} ออกจากระบบเรียบร้อยแล้ว!`);
-                    calculateSummary(allProjects);
-                    renderDynamicA4Pages(allProjects, currentSelectedPlan, currentSelectedJob, currentSelectedCategory, currentSelectedSubType);
-                }).catch(err => {
-                    showToast('error', 'เกิดข้อผิดพลาดในการลบรายการ: ' + err.message);
-                });
             }
-        }
-
-        function saveProjectNote() {
-            if (isExecutiveView) return;
-            if (!activeSelectedPrjId || !allProjects[activeSelectedPrjId]) return;
-            const newName = document.getElementById('modalProjectNameInput').value.trim();
-            const newNote = document.getElementById('modalProjectNote').value.trim();
-            if (!newName) {
-                showToast('error', 'ชื่อรายการงบประมาณต้องไม่เป็นค่าว่าง');
-                return;
-            }
-            allProjects[activeSelectedPrjId].project_name = newName;
-            allProjects[activeSelectedPrjId].note = newNote;
-
-            const updates = {};
-            updates[`projects/${activeSelectedPrjId}/project_name`] = newName;
-            updates[`projects/${activeSelectedPrjId}/note`] = newNote;
-
-            db.ref().update(updates).then(() => {
-                closeModal('detailModal');
-                showToast('success', `อัปเดตข้อมูลรายการ "${newName}" เรียบร้อยแล้ว!`);
-                renderDynamicA4Pages(allProjects, currentSelectedPlan, currentSelectedJob, currentSelectedCategory, currentSelectedSubType);
-            });
         }
 
         function showProjectHistoryModal(prjId) {
             const item = allProjects[prjId];
             document.getElementById('modalProjectName').innerText = item.project_name;
-            document.getElementById('modalProjectNameInput').value = item.project_name;
+            document.getElementById('modalProjectNameDisplay').innerText = item.project_name;
             document.getElementById('modalProjectCode').innerText = prjId;
             document.getElementById('modalProjectCategory').innerText = `${item.plan} ➔ ${item.job || 'งานทั่วไป'} ➔ ${item.budget_group || 'งบประมาณ'}`;
-            document.getElementById('modalProjectNote').value = item.note || `คำชี้แจงงบประมาณสำหรับ ${item.project_name}`;
+            document.getElementById('modalProjectNoteDisplay').innerText = item.note || `คำชี้แจงงบประมาณสำหรับ ${item.project_name}`;
 
             const historyContainer = document.getElementById('modalHistoryContainer');
             historyContainer.innerHTML = '';
@@ -1028,264 +571,6 @@
             document.getElementById('detailModal').classList.remove('hidden');
         }
 
-        function saveAndExecuteNewItemTransfer() {
-            if (isExecutiveView) return;
-            if (!activeSourcePrjId || activeTransferAmount <= 0) return;
-
-            const newId = document.getElementById('newItemId').value;
-            const plan = document.getElementById('newItemPlan').value;
-            const job = document.getElementById('newItemJob').value;
-            const category = document.getElementById('newItemCategory').value;
-            const name = document.getElementById('newItemName').value.trim();
-            const note = document.getElementById('newItemNote').value.trim();
-
-            if (!name) {
-                showToast('error', 'กรุณากรอกชื่อรายการใหม่');
-                return;
-            }
-
-            const sourceItem = allProjects[activeSourcePrjId];
-            const newSourceBalance = (sourceItem.current_budget || 0) - activeTransferAmount;
-
-            const newItemData = {
-                id: newId,
-                project_name: name,
-                plan: plan,
-                job: job,
-                budget_group: category,
-                initial_budget: 0,
-                current_budget: activeTransferAmount,
-                is_new_item: true,
-                parent_source_id: activeSourcePrjId,
-                note: note || `รายการตั้งใหม่ รับโอนจาก ${sourceItem.project_name} จำนวน ${activeTransferAmount.toLocaleString()} บาท`
-            };
-
-            const transferNo = transferLogsList.length + 1;
-            const batchNo = 1;
-            const seqNo = transferNo;
-
-            const transferData = {
-                transfer_no: transferNo,
-                batch_no: batchNo,
-                seq_no: seqNo,
-                timestamp: new Date().toISOString(),
-                date: activeTransferDate || new Date().toLocaleDateString('th-TH'),
-                source: { id: activeSourcePrjId, project_name: sourceItem.project_name, plan: sourceItem.plan, job: sourceItem.job, budget_before: sourceItem.current_budget, budget_after: newSourceBalance },
-                dest: { id: newId, project_name: name, plan: plan, job: job, budget_before: 0, budget_after: activeTransferAmount },
-                amount: activeTransferAmount,
-                is_new_item: true
-            };
-
-            allProjects[activeSourcePrjId].current_budget = newSourceBalance;
-            allProjects[newId] = newItemData;
-            
-            const firebaseKey = `TRF-${transferNo}`;
-            transferLogsList.push({ firebaseKey, ...transferData });
-
-            const updates = {};
-            updates[`projects/${activeSourcePrjId}/current_budget`] = newSourceBalance;
-            updates[`projects/${newId}`] = newItemData;
-            updates[`transfer_history/${firebaseKey}`] = transferData;
-
-            db.ref().update(updates).then(() => {
-                closeModal('createNewItemModal');
-                showToast('success', `โอนครั้งที่ ${batchNo}/2570 ลำดับที่ ${seqNo}: ตั้งรายการใหม่ "${name}" เรียบร้อยแล้ว!`);
-
-                activeSourcePrjId = null;
-                activeTransferAmount = 0;
-                activeTransferDate = "";
-                document.getElementById('activeTransferBar').classList.add('hidden');
-                
-                renderSidebarTransferLogs();
-                calculateSummary(allProjects);
-                renderDynamicA4Pages(allProjects, currentSelectedPlan, currentSelectedJob, currentSelectedCategory, currentSelectedSubType);
-            });
-        }
-
-        function setQuickAmount(amt) {
-            const input = document.getElementById('transferAmountInput');
-            const current = parseFloat(input.value) || 0;
-            input.value = current + amt;
-            validateTransferAmount();
-        }
-
-        function setMaxAmount() {
-            if (!activeSourcePrjId) return;
-            const max = allProjects[activeSourcePrjId].current_budget || 0;
-            document.getElementById('transferAmountInput').value = max;
-            validateTransferAmount();
-        }
-
-        function validateTransferAmount() {
-            if (!activeSourcePrjId) return;
-            const max = allProjects[activeSourcePrjId].current_budget || 0;
-            const input = document.getElementById('transferAmountInput');
-            let val = parseFloat(input.value) || 0;
-            if (val > max) input.value = max;
-        }
-
-        function confirmTransferAmount() {
-            if (isExecutiveView) return;
-            const amt = parseFloat(document.getElementById('transferAmountInput').value) || 0;
-            const approvedDate = document.getElementById('transferApprovedDateInput').value.trim();
-
-            if (amt <= 0) {
-                showToast('error', 'กรุณาระบุจำนวนเงินโอนที่ถูกต้อง');
-                return;
-            }
-
-            activeTransferAmount = amt;
-            activeTransferDate = approvedDate || new Date().toLocaleDateString('th-TH');
-
-            closeModal('transferAmountModal');
-
-            const item = allProjects[activeSourcePrjId];
-            document.getElementById('sourcePrjTitle').innerText = `${activeSourcePrjId}: ${item.project_name}`;
-            document.getElementById('activeAmountDisplay').innerText = `${amt.toLocaleString()} ฿`;
-            document.getElementById('activeTransferDateDisplay').innerText = activeTransferDate;
-            document.getElementById('activeTransferBar').classList.remove('hidden');
-
-            showToast('info', `ตั้งยอดโอน ${amt.toLocaleString()} บาท (อนุมัติ: ${activeTransferDate}) เรียบร้อยแล้ว กรุณาเลือกรายการปลายทาง`);
-        }
-
-        function triggerIncomingTransferPrompt(destPrjId) {
-            if (isExecutiveView) return;
-            if (destPrjId === activeSourcePrjId) {
-                showToast('error', 'ไม่สามารถโอนลดและโอนเพิ่มในรายการเดียวกันได้ครับ');
-                return;
-            }
-
-            const sourceItem = allProjects[activeSourcePrjId];
-            const card = document.getElementById(`card-${destPrjId}`);
-            if (!card) return;
-
-            let promptBox = card.querySelector('.incoming-prompt-box');
-            if (!promptBox) {
-                promptBox = document.createElement('div');
-                promptBox.className = 'incoming-prompt-box w-full mt-2 p-3 bg-slate-900 text-white rounded-xl shadow-lg flex items-center justify-between gap-3';
-                card.appendChild(promptBox);
-            }
-
-            promptBox.innerHTML = `
-                <div class="flex items-center gap-2 font-sans text-xs">
-                    <i class="fa-solid fa-gift text-yellow-300 text-base animate-bounce"></i>
-                    <div>
-                        <span class="font-bold">ข้อเสนอรับโอนงบ: ${activeTransferAmount.toLocaleString()} บาท</span>
-                        <p class="text-[10px] text-slate-400">จาก: ${sourceItem.project_name} (วันอนุมัติ: ${activeTransferDate})</p>
-                    </div>
-                </div>
-                <div class="flex items-center gap-1.5 shrink-0">
-                    <button onclick="acceptTransfer('${destPrjId}')" class="px-3 py-1 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-lg shadow transition-all">ยอมรับ</button>
-                    <button onclick="cancelPairing()" class="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-lg shadow transition-all">ยกเลิก</button>
-                </div>
-            `;
-        }
-
-        function acceptTransfer(destPrjId) {
-            if (isExecutiveView) return;
-            if (!activeSourcePrjId || activeTransferAmount <= 0) return;
-
-            const sourceItem = allProjects[activeSourcePrjId];
-            const destItem = allProjects[destPrjId];
-
-            const newSourceBal = (sourceItem.current_budget || 0) - activeTransferAmount;
-            const newDestBal = (destItem.current_budget || 0) + activeTransferAmount;
-
-            recentTransfers[activeSourcePrjId] = { type: 'down', amount: activeTransferAmount };
-            recentTransfers[destPrjId] = { type: 'up', amount: activeTransferAmount };
-
-            const transferNo = transferLogsList.length + 1;
-            const batchNo = 1;
-            const seqNo = transferNo;
-
-            const transferData = {
-                transfer_no: transferNo,
-                batch_no: batchNo,
-                seq_no: seqNo,
-                timestamp: new Date().toISOString(),
-                date: activeTransferDate || new Date().toLocaleDateString('th-TH'),
-                source: { id: activeSourcePrjId, project_name: sourceItem.project_name, plan: sourceItem.plan, job: sourceItem.job, budget_before: sourceItem.current_budget, budget_after: newSourceBal },
-                dest: { id: destPrjId, project_name: destItem.project_name, plan: destItem.plan, job: destItem.job, budget_before: destItem.current_budget, budget_after: newDestBal },
-                amount: activeTransferAmount,
-                is_new_item: false
-            };
-
-            allProjects[activeSourcePrjId].current_budget = newSourceBal;
-            allProjects[destPrjId].current_budget = newDestBal;
-            
-            const firebaseKey = `TRF-${transferNo}`;
-            transferLogsList.push({ firebaseKey, ...transferData });
-
-            const updates = {};
-            updates[`projects/${activeSourcePrjId}/current_budget`] = newSourceBal;
-            updates[`projects/${destPrjId}/current_budget`] = newDestBal;
-            updates[`transfer_history/${firebaseKey}`] = transferData;
-
-            db.ref().update(updates).then(() => {
-                showToast('success', `โอนครั้งที่ ${batchNo}/2570 ลำดับที่ ${seqNo}: จำนวน ${activeTransferAmount.toLocaleString()} บาท สำเร็จ!`);
-
-                activeSourcePrjId = null;
-                activeTransferAmount = 0;
-                activeTransferDate = "";
-                document.getElementById('activeTransferBar').classList.add('hidden');
-
-                renderSidebarTransferLogs();
-                calculateSummary(allProjects);
-                renderDynamicA4Pages(allProjects, currentSelectedPlan, currentSelectedJob, currentSelectedCategory, currentSelectedSubType);
-            });
-        }
-
-        function cancelPairing() {
-            activeSourcePrjId = null;
-            activeTransferAmount = 0;
-            activeTransferDate = "";
-            document.getElementById('activeTransferBar').classList.add('hidden');
-            renderDynamicA4Pages(allProjects, currentSelectedPlan, currentSelectedJob, currentSelectedCategory, currentSelectedSubType);
-        }
-
-        function deleteTransferLog(firebaseKey) {
-            if (isExecutiveView) return;
-            const logIndex = transferLogsList.findIndex(l => l.firebaseKey === firebaseKey);
-            if (logIndex === -1) return;
-
-            const log = transferLogsList[logIndex];
-            const batchNo = log.batch_no || 1;
-            const seqNo = log.seq_no || log.transfer_no;
-
-            if (!confirm(`คุณต้องการยกเลิกและลบการโอนครั้งที่ ${batchNo}/2570 ลำดับที่ ${seqNo} (จำนวน ${log.amount.toLocaleString()} บาท) ใช่หรือไม่?\n\n*ยอดงบประมาณของคู่รายการโอนจะถูกคำนวณคืนกลับอัตโนมัติ`)) return;
-
-            const updates = {};
-
-            if (allProjects[log.source.id]) {
-                const restoredSourceBal = (allProjects[log.source.id].current_budget || 0) + log.amount;
-                allProjects[log.source.id].current_budget = restoredSourceBal;
-                updates[`projects/${log.source.id}/current_budget`] = restoredSourceBal;
-            }
-
-            if (allProjects[log.dest.id]) {
-                if (log.is_new_item) {
-                    delete allProjects[log.dest.id];
-                    updates[`projects/${log.dest.id}`] = null;
-                } else {
-                    const restoredDestBal = (allProjects[log.dest.id].current_budget || 0) - log.amount;
-                    allProjects[log.dest.id].current_budget = Math.max(0, restoredDestBal);
-                    updates[`projects/${log.dest.id}/current_budget`] = Math.max(0, restoredDestBal);
-                }
-            }
-
-            updates[`transfer_history/${firebaseKey}`] = null;
-            transferLogsList.splice(logIndex, 1);
-
-            db.ref().update(updates).then(() => {
-                showToast('success', `🗑️ ยกเลิกการโอนครั้งที่ ${batchNo}/2570 ลำดับที่ ${seqNo} และคืนค่ายอดงบประมาณเรียบร้อยแล้ว!`);
-                renderSidebarTransferLogs();
-                calculateSummary(allProjects);
-                renderDynamicA4Pages(allProjects, currentSelectedPlan, currentSelectedJob, currentSelectedCategory, currentSelectedSubType);
-            }).catch(err => {
-                showToast('error', 'เกิดข้อผิดพลาดในการยกเลิกรายการโอน: ' + err.message);
-            });
-        }
-
         function renderSidebarTransferLogs() {
             const logContainer = document.getElementById('pairingsLog');
             if (!transferLogsList || transferLogsList.length === 0) {
@@ -1301,39 +586,24 @@
             const reverseLogs = [...transferLogsList].reverse();
             reverseLogs.forEach((log) => {
                 const logItem = document.createElement('div');
-                logItem.className = 'p-3 bg-white border border-slate-200 rounded-2xl space-y-1.5 font-sans text-xs shadow-sm border-l-4 border-l-amber-500 relative group';
+                logItem.className = 'p-3 bg-white border border-slate-200 rounded-2xl space-y-1.5 font-sans text-xs shadow-sm border-l-4 border-l-amber-500 relative';
                 
                 const batchNo = log.batch_no || 1;
                 const seqNo = log.seq_no || log.transfer_no;
 
                 logItem.innerHTML = `
-                    <div class="flex items-center justify-between font-bold text-slate-800 pr-4">
+                    <div class="flex items-center justify-between font-bold text-slate-800">
                         <span class="text-amber-700 font-mono text-[11px]">
                             <i class="fa-solid fa-receipt"></i> โอนครั้งที่ ${batchNo}/2570 ลำดับที่ ${seqNo}
                         </span>
                         <span class="font-mono text-emerald-700 font-bold">${log.amount.toLocaleString()} ฿</span>
                     </div>
-
-                    ${!isExecutiveView ? `
-                    <button onclick="deleteTransferLog('${log.firebaseKey}')" title="ยกเลิก/ลบการโอนรายการนี้" class="absolute top-2.5 right-2.5 text-slate-300 hover:text-rose-600 transition-all p-1 text-xs">
-                        <i class="fa-solid fa-xmark"></i>
-                    </button>` : ''}
-
                     <div class="text-[10px] text-slate-400 font-mono">
                         <i class="fa-solid fa-calendar-day text-amber-500"></i> วันที่อนุมัติ: <b class="text-slate-600">${log.date}</b>
                     </div>
-
                     <div class="text-[11px] text-slate-500 space-y-0.5 pt-0.5">
                         <div class="text-rose-600 truncate">🔴 โอนลด: ${log.source.project_name}</div>
                         <div class="text-emerald-600 truncate">🟢 รับโอน: ${log.dest.project_name}</div>
-                    </div>
-                    <div class="pt-1.5 flex items-center gap-1 border-t border-slate-100">
-                        <button onclick="generateTransferFormDocByLogObj('${log.firebaseKey}')" class="flex-1 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold rounded-lg text-[10px] transition-all flex items-center justify-center gap-1 border border-emerald-200">
-                            <i class="fa-solid fa-file-invoice"></i> แบบขออนุมัติ
-                        </button>
-                        <button onclick="generateMemoDocByLogObj('${log.firebaseKey}')" class="flex-1 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-lg text-[10px] transition-all flex items-center justify-center gap-1 border border-indigo-200">
-                            <i class="fa-solid fa-envelope-open-text"></i> บันทึกข้อความ
-                        </button>
                     </div>
                 `;
                 logContainer.appendChild(logItem);
@@ -1341,7 +611,6 @@
             document.getElementById('transferCountBadge').innerText = `${transferLogsList.length} รายการ`;
         }
 
-        // 🌟 ระบบพิมพ์ Audit Log พร้อมแบ่งหน้า A4 อัตโนมัติ (Pagination)
         function openAuditLogModal() {
             const container = document.getElementById('auditLogPrintArea');
             container.innerHTML = '';
@@ -1450,128 +719,6 @@
             modalContainer.classList.remove('hidden');
         }
 
-        function generateTransferFormDocByLogObj(firebaseKey) {
-            const log = transferLogsList.find(l => l.firebaseKey === firebaseKey);
-            if (!log) return;
-
-            const batchNo = log.batch_no || 1;
-            const seqNo = log.seq_no || log.transfer_no;
-
-            document.getElementById('docModalTitle').innerText = `แบบขออนุมัติโอนเงินงบประมาณรายจ่าย (โอนครั้งที่ ${batchNo}/2570 ลำดับที่ ${seqNo})`;
-            const area = document.getElementById('printArea');
-            area.innerHTML = `
-                <div class="text-center space-y-1">
-                    <img src="KPLOGO.jpg" class="w-16 h-16 mx-auto object-contain mb-2">
-                    <h2 class="font-bold text-base">แบบขออนุมัติโอนเงินงบประมาณรายจ่าย ประจำปีงบประมาณ พ.ศ. 2570</h2>
-                    <h3 class="font-semibold text-xs text-slate-600">องค์การบริหารส่วนตำบลข่วงเปา อำเภอจอมทอง จังหวัดเชียงใหม่</h3>
-                </div>
-
-                <div class="flex justify-between items-center text-xs pt-4 border-t border-slate-300 font-mono">
-                    <span class="font-bold text-amber-700">บัญชีโอนเงินงบประมาณ ครั้งที่ ${batchNo}/2570 ลำดับที่ ${seqNo}</span>
-                    <span>วันที่อนุมัติ: ${log.date}</span>
-                </div>
-
-                <table class="w-full border-collapse border border-slate-800 text-xs mt-4">
-                    <thead>
-                        <tr class="bg-slate-100 text-center font-bold">
-                            <th class="border border-slate-800 p-2">รายการ</th>
-                            <th class="border border-slate-800 p-2">แผนงาน / งาน</th>
-                            <th class="border border-slate-800 p-2">งบประมาณก่อนโอน</th>
-                            <th class="border border-slate-800 p-2">โอนลด (-)</th>
-                            <th class="border border-slate-800 p-2">โอนเพิ่ม (+)</th>
-                            <th class="border border-slate-800 p-2">งบประมาณหลังโอน</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td class="border border-slate-800 p-2 font-bold text-rose-700">โอนลด: ${log.source.project_name}</td>
-                            <td class="border border-slate-800 p-2">${log.source.plan}<br><span class="text-slate-500">${log.source.job || 'งานทั่วไป'}</span></td>
-                            <td class="border border-slate-800 p-2 text-right font-mono">${log.source.budget_before.toLocaleString()}</td>
-                            <td class="border border-slate-800 p-2 text-right font-mono text-rose-600 font-bold">${log.amount.toLocaleString()}</td>
-                            <td class="border border-slate-800 p-2 text-right font-mono">-</td>
-                            <td class="border border-slate-800 p-2 text-right font-mono font-bold">${log.source.budget_after.toLocaleString()}</td>
-                        </tr>
-                        <tr>
-                            <td class="border border-slate-800 p-2 font-bold text-emerald-700">โอนเพิ่ม: ${log.dest.project_name}</td>
-                            <td class="border border-slate-800 p-2">${log.dest.plan}<br><span class="text-slate-500">${log.dest.job || 'งานทั่วไป'}</span></td>
-                            <td class="border border-slate-800 p-2 text-right font-mono">${log.dest.budget_before.toLocaleString()}</td>
-                            <td class="border border-slate-800 p-2 text-right font-mono">-</td>
-                            <td class="border border-slate-800 p-2 text-right font-mono text-emerald-600 font-bold">${log.amount.toLocaleString()}</td>
-                            <td class="border border-slate-800 p-2 text-right font-mono font-bold">${log.dest.budget_after.toLocaleString()}</td>
-                        </tr>
-                    </tbody>
-                </table>
-
-                <div class="grid grid-cols-2 gap-8 pt-10 text-center text-xs leading-relaxed">
-                    <div class="space-y-8">
-                        <p>ลงชื่อ..........................................................เจ้าหน้าที่วิเคราะห์ฯ<br>(..........................................................)</p>
-                    </div>
-                    <div class="space-y-8">
-                        <p>ความเห็นนายก อบต.ข่วงเปา:<br>[  ] อนุมัติ    [  ] ไม่อนุมัติ</p>
-                        <p>ลงชื่อ..........................................................นายก อบต.ข่วงเปา<br>(..........................................................)</p>
-                    </div>
-                </div>
-            `;
-            
-            const printModal = document.getElementById('printDocModal');
-            if (printModal) {
-                const scrollDiv = printModal.querySelector('.overflow-y-auto');
-                if (scrollDiv) scrollDiv.scrollTop = 0;
-            }
-            printModal.classList.remove('hidden');
-        }
-
-        function generateMemoDocByLogObj(firebaseKey) {
-            const log = transferLogsList.find(l => l.firebaseKey === firebaseKey);
-            if (!log) return;
-
-            const batchNo = log.batch_no || 1;
-            const seqNo = log.seq_no || log.transfer_no;
-            const isCouncilPower = (log.dest.budget_group === 'งบลงทุน' || log.is_new_item);
-
-            document.getElementById('docModalTitle').innerText = isCouncilPower ? `บันทึกเสนอญัตติต่อสภา อบต.ข่วงเปา (โอนครั้งที่ ${batchNo}/2570 ลำดับที่ ${seqNo})` : `บันทึกข้อความขออนุมัติโอนงบประมาณ (โอนครั้งที่ ${batchNo}/2570 ลำดับที่ ${seqNo})`;
-
-            const area = document.getElementById('printArea');
-            area.innerHTML = `
-                <div class="flex items-center gap-4 border-b-2 border-slate-800 pb-3">
-                    <img src="KPLOGO.jpg" class="w-16 h-16 object-contain">
-                    <div>
-                        <h1 class="font-bold text-lg">บันทึกข้อความ</h1>
-                        <p class="text-xs">ส่วนราชการ: องค์การบริหารส่วนตำบลข่วงเปา อ.จอมทอง จ.เชียงใหม่</p>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-2 text-xs gap-2 pt-2">
-                    <p><b>ที่:</b> ชม 78501/............</p>
-                    <p><b>วันที่:</b> ${log.date}</p>
-                    <p class="col-span-2"><b>เรื่อง:</b> ขออนุมัติโอนเงินงบประมาณรายจ่าย ประจำปี พ.ศ. 2570 (โอนครั้งที่ ${batchNo}/2570 ลำดับที่ ${seqNo})</p>
-                    <p class="col-span-2"><b>เรียน:</b> ${isCouncilPower ? 'ประธานสภาองค์การบริหารส่วนตำบลข่วงเปา (ผ่าน นายก อบต.)' : 'นายกองค์การบริหารส่วนตำบลข่วงเปา'}</p>
-                </div>
-
-                <div class="space-y-3 text-xs leading-relaxed pt-2">
-                    <p class="indent-8"><b>1. เรื่องเดิม:</b> ตามที่ องค์การบริหารส่วนตำบลข่วงเปา ได้ประกาศใช้ข้อบัญญัติงบประมาณรายจ่าย ประจำปีงบประมาณ พ.ศ. 2570 ไว้แล้ว นั้น</p>
-                    <p class="indent-8"><b>2. ข้อเท็จจริง:</b> บัดนี้ ส่วนราชการมีความจำเป็นต้องดำเนินการ <b>"${log.dest.project_name}"</b> เป็นจำนวนเงิน <b>${log.amount.toLocaleString()} บาท (${THBAHT(log.amount)})</b> แต่เนื่องจากงบประมาณไม่เพียงพอ จึงมีความจำเป็นต้องโอนลดจากรายการ <b>"${log.source.project_name}"</b></p>
-                    <p class="indent-8"><b>3. ข้อระเบียบ/กฎหมาย:</b> ตามระเบียบกระทรวงมหาดไทย ว่าด้วยวิธีงบประมาณขององค์กรปกครองส่วนท้องถิ่น พ.ศ. 2563 ${isCouncilPower ? '<b>ข้อ 27</b> การโอนเงินงบประมาณรายจ่ายในหมวดค่าครุภัณฑ์ Land และสิ่งก่อสร้าง ให้เป็นอำนาจอนุมัติของสภาท้องถิ่น' : '<b>ข้อ 26</b> การโอนเงินงบประมาณรายจ่ายย่อมเป็นอำนาจอนุมัติของผู้บริหารท้องถิ่น'}</p>
-                    <p class="indent-8"><b>4. ข้อเสนอ:</b> จึงเรียนมาเพื่อโปรดพิจารณาอนุมัติการโอนเงินงบประมาณดังกล่าว</p>
-                </div>
-
-                <div class="grid grid-cols-2 gap-8 pt-12 text-center text-xs">
-                    <div></div>
-                    <div class="space-y-12">
-                        <p>(ลงชื่อ)..........................................................<br>(..........................................................)<br>ตำแหน่ง หัวหน้าเจ้าหน้าที่งบประมาณ</p>
-                    </div>
-                </div>
-            `;
-            
-            const printModal = document.getElementById('printDocModal');
-            if (printModal) {
-                const scrollDiv = printModal.querySelector('.overflow-y-auto');
-                if (scrollDiv) scrollDiv.scrollTop = 0;
-            }
-            printModal.classList.remove('hidden');
-        }
-
-        function THBAHT(Number) { return Number.toLocaleString('th-TH') + " บาทถ้วน"; }
         function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 
         function renderDynamicA4Pages(projects, selectedPlanFilter = 'แผนงานบริหารงานทั่วไป', selectedJobFilter = 'all', selectedCategoryFilter = 'all', selectedSubTypeFilter = 'all') {
@@ -1686,7 +833,7 @@
             let pageHtml = `
             <section class="a4-page font-sarabun space-y-6 border border-slate-200/60">
                 <div class="text-center pb-2 border-b border-slate-100">
-                    <div class="text-[21px] font-bold text-slate-500 font-sans tracking-wide">งบประมาณจำแนกตามแผนงาน</div>
+                    <div class="text-[21px] font-bold text-slate-500 font-sans tracking-wide">งบประมาณจำแนกตามแผนงาน (Executive Read-Only View)</div>
                 </div>
 
                 <div class="border-b-2 border-slate-900 pb-3 flex justify-between items-end gap-4">
@@ -1724,13 +871,6 @@
                     `;
 
                     groupedJobs[jobName].forEach(item => {
-                        let arrowHtml = '';
-                        if (recentTransfers[item.id]) {
-                            const t = recentTransfers[item.id];
-                            if (t.type === 'down') arrowHtml = ` <span class="text-rose-600 font-bold"><i class="fa-solid fa-arrow-down"></i></span>`;
-                            else if (t.type === 'up') arrowHtml = ` <span class="text-emerald-600 font-bold"><i class="fa-solid fa-arrow-up"></i></span>`;
-                        }
-
                         pageHtml += `
                         <div oncontextmenu="openContextMenu(event, '${item.id}')" class="p-4 bg-white border border-slate-200/90 hover:border-emerald-400 hover:shadow-md rounded-2xl font-sans text-xs transition-all cursor-context-menu flex flex-col gap-2 relative group hover:-translate-y-0.5" id="card-${item.id}">
                             <div class="flex justify-between items-center gap-4 w-full header-line">
@@ -1745,7 +885,7 @@
                                     <h4 class="font-bold text-slate-900 text-sm truncate">${item.project_name}</h4>
                                 </div>
                                 <div class="text-right font-mono shrink-0">
-                                    <div class="text-base font-bold text-emerald-600">${(item.current_budget || item.amount || 0).toLocaleString('th-TH', {minimumFractionDigits: 2})} บาท${arrowHtml}</div>
+                                    <div class="text-base font-bold text-emerald-600">${(item.current_budget || item.amount || 0).toLocaleString('th-TH', {minimumFractionDigits: 2})} บาท</div>
                                 </div>
                             </div>
                         </div>
@@ -1761,8 +901,6 @@
 
             const currentQuery = document.getElementById('searchInput') ? document.getElementById('searchInput').value.trim() : '';
             if (currentQuery) filterProjects(currentQuery);
-
-            if (isExecutiveView) applyExecutiveGuardrail();
         }
 
         function filterProjects(query) {
@@ -1815,7 +953,7 @@
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-lg border border-amber-500/30 shrink-0"><i class="fa-solid fa-wand-magic-sparkles animate-pulse"></i></div>
                     <div>
-                        <span class="text-[10px] text-amber-400 font-bold uppercase tracking-wider block">Smart Assistant Search</span>
+                        <span class="text-[10px] text-amber-400 font-bold uppercase tracking-wider block">Executive Smart Search</span>
                         <h4 class="font-bold text-xs text-slate-100">ผลสรุปรายการตามคำสั่ง: "<span class="text-amber-300 font-semibold">${query}</span>"</h4>
                         <p class="text-[11px] text-slate-400">พบทั้งหมด <b class="text-white">${count}</b> รายการ</p>
                     </div>
@@ -1830,16 +968,6 @@
         function removeSmartBanner() {
             const banner = document.getElementById('smartSearchBanner');
             if (banner) banner.remove();
-        }
-
-        function showToast(type, message) {
-            const container = document.getElementById('toastContainer');
-            if (!container) return;
-            const toast = document.createElement('div');
-            toast.className = `p-4 rounded-2xl shadow-xl flex items-center gap-3 text-xs font-semibold bg-slate-900 text-white transition-all pointer-events-auto border border-slate-800`;
-            toast.innerHTML = `<i class="fa-solid fa-bell text-amber-400"></i><span>${message}</span>`;
-            container.appendChild(toast);
-            setTimeout(() => toast.remove(), 3200);
         }
 
         function openRawListModal() {
@@ -1989,250 +1117,6 @@
                 pageDiv.innerHTML = tableHtml;
                 container.appendChild(pageDiv);
             }
-        }
-
-        // 🌟 ระบบนำเข้าไฟล์ Excel อัตโนมัติ (Excel Importer)
-        function openExcelImportModal() {
-            if (isExecutiveView) return;
-            parsedExcelBatchData = [];
-            document.getElementById('excelFileInput').value = '';
-            document.getElementById('selectedFileName').classList.add('hidden');
-            document.getElementById('excelPreviewContainer').classList.add('hidden');
-            document.getElementById('confirmImportBtn').disabled = true;
-            document.getElementById('importStatusText').innerText = 'กรุณาอัปโหลดไฟล์ Excel เพื่อเริ่มต้น';
-            document.getElementById('excelImportModal').classList.remove('hidden');
-        }
-
-        function handleExcelFileSelect(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            const fileNameEl = document.getElementById('selectedFileName');
-            fileNameEl.innerText = `📄 ไฟล์ที่เลือก: ${file.name}`;
-            fileNameEl.classList.remove('hidden');
-
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    
-                    const sheetName = workbook.SheetNames[0];
-                    const worksheet = workbook.Sheets[sheetName];
-                    const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-
-                    parseTransferExcelRows(rows);
-                } catch (err) {
-                    console.error(err);
-                    showToast('error', 'เกิดข้อผิดพลาดในการอ่านไฟล์ Excel: ' + err.message);
-                }
-            };
-            reader.readAsArrayBuffer(file);
-        }
-
-        function parseTransferExcelRows(rows) {
-            parsedExcelBatchData = [];
-            let totalSum = 0;
-
-            for (let i = 14; i < rows.length; i += 4) {
-                const rowOut = rows[i];
-                const rowIn = rows[i+2];
-
-                if (!rowOut || rowOut.length <= 2 || !rowOut[2]) break;
-
-                const sourcePlan = rowOut[2] || 'แผนงานบริหารงานทั่วไป';
-                const sourceJob = rowOut[4] || 'งานบริหารทั่วไป';
-                const sourceCat = rowOut[6] || 'งบบุคลากร';
-                const sourceProjName = rowOut[10] || rowOut[8] || 'งบประมาณต้นทาง';
-                
-                let amount = 0;
-                const amtStr = String(rowOut[20] || '');
-                const cleanNum = parseFloat(amtStr.replace(/[^0-9.-]+/g, ""));
-                if (!isNaN(cleanNum) && cleanNum > 0) {
-                    amount = cleanNum;
-                }
-
-                let destPlan = sourcePlan;
-                let destJob = sourceJob;
-                let destCat = 'งบดำเนินงาน';
-                let destProjName = 'ตั้งจ่ายเป็นรายการใหม่';
-                let isNewItem = true;
-                let note = '';
-
-                if (rowIn && rowIn.length > 2) {
-                    destPlan = rowIn[2] || sourcePlan;
-                    destJob = rowIn[4] || sourceJob;
-                    destCat = rowIn[6] || 'งบดำเนินงาน';
-                    destProjName = rowIn[10] || rowIn[8] || 'ตั้งจ่ายเป็นรายการใหม่';
-                    note = rowIn[24] || rowIn[22] || 'เนื่องจากงบประมาณไม่เพียงพอ';
-                    
-                    if (note.includes('ไม่พบ') || note.includes('เพียงพอ') || !note.includes('ใหม่')) {
-                        isNewItem = false;
-                    }
-                }
-
-                if (amount > 0) {
-                    parsedExcelBatchData.push({
-                        source: { plan: sourcePlan, job: sourceJob, budget_group: sourceCat, project_name: sourceProjName },
-                        dest: { plan: destPlan, job: destJob, budget_group: destCat, project_name: destProjName, is_new_item: isNewItem },
-                        amount: amount,
-                        date: '05/11/2569',
-                        note: note
-                    });
-                    totalSum += amount;
-                }
-            }
-
-            renderExcelPreviewTable(totalSum);
-        }
-
-        function renderExcelPreviewTable(totalSum) {
-            const tbody = document.getElementById('excelPreviewTableBody');
-            tbody.innerHTML = '';
-
-            if (parsedExcelBatchData.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-slate-400 italic">ไม่พบรายการโอนในไฟล์ หรือรูปแบบไฟล์ไม่ถูกต้อง</td></tr>`;
-                document.getElementById('confirmImportBtn').disabled = true;
-                return;
-            }
-
-            parsedExcelBatchData.forEach((item, idx) => {
-                tbody.innerHTML += `
-                    <tr class="border-b border-slate-100 hover:bg-purple-50/30">
-                        <td class="p-2 text-center font-bold font-mono text-purple-700">${idx + 1}</td>
-                        <td class="p-2 text-rose-700">
-                            <b>${item.source.project_name}</b><br>
-                            <span class="text-[10px] text-slate-500">${item.source.plan} > ${item.source.job}</span>
-                        </td>
-                        <td class="p-2 text-emerald-700">
-                            <b>${item.dest.project_name}</b> ${item.dest.is_new_item ? '<span class="px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded text-[9px] font-bold">รายการใหม่</span>' : ''}<br>
-                            <span class="text-[10px] text-slate-500">${item.dest.plan} > ${item.dest.job}</span>
-                        </td>
-                        <td class="p-2 text-right font-mono font-bold text-slate-800">${item.amount.toLocaleString('th-TH', {minimumFractionDigits: 2})} ฿</td>
-                    </tr>
-                `;
-            });
-
-            document.getElementById('parsedPairsCount').innerText = parsedExcelBatchData.length;
-            document.getElementById('parsedTotalAmount').innerText = `ยอดโอนรวม: ${totalSum.toLocaleString('th-TH', {minimumFractionDigits: 2})} ฿`;
-            document.getElementById('importStatusText').innerText = `พร้อมบันทึก ${parsedExcelBatchData.length} รายการเข้าสู่ระบบ`;
-            document.getElementById('excelPreviewContainer').classList.remove('hidden');
-            document.getElementById('confirmImportBtn').disabled = false;
-        }
-
-        function executeExcelBatchImport() {
-            if (isExecutiveView) return;
-            if (parsedExcelBatchData.length === 0) return;
-
-            if (!confirm(`คุณต้องการยืนยันนำเข้าและบันทึกข้อมูลการโอนชุดนี้จำนวน ${parsedExcelBatchData.length} รายการ เข้าสู่ฐานข้อมูล Firebase ทันทีใช่หรือไม่?`)) return;
-
-            const updates = {};
-            let currentLogNo = transferLogsList.length + 1;
-
-            parsedExcelBatchData.forEach((batchItem, index) => {
-                const transferNo = currentLogNo + index;
-                const firebaseKey = `TRF-${transferNo}`;
-
-                let sourcePrjId = '';
-                let foundSourceItem = null;
-                Object.keys(allProjects).forEach(id => {
-                    if (allProjects[id].project_name.includes(batchItem.source.project_name) || batchItem.source.project_name.includes(allProjects[id].project_name)) {
-                        sourcePrjId = id;
-                        foundSourceItem = allProjects[id];
-                    }
-                });
-
-                if (!sourcePrjId) {
-                    for (let id of Object.keys(allProjects)) {
-                        if (allProjects[id].plan === batchItem.source.plan) {
-                            sourcePrjId = id;
-                            foundSourceItem = allProjects[id];
-                            break;
-                        }
-                    }
-                }
-
-                if (foundSourceItem) {
-                    const beforeBal = foundSourceItem.current_budget || foundSourceItem.amount || 0;
-                    const afterBal = Math.max(0, beforeBal - batchItem.amount);
-                    foundSourceItem.current_budget = afterBal;
-                    updates[`projects/${sourcePrjId}/current_budget`] = afterBal;
-
-                    let destPrjId = '';
-                    let foundDestItem = null;
-
-                    if (!batchItem.dest.is_new_item) {
-                        Object.keys(allProjects).forEach(id => {
-                            if (allProjects[id].project_name.includes(batchItem.dest.project_name)) {
-                                destPrjId = id;
-                                foundDestItem = allProjects[id];
-                            }
-                        });
-                    }
-
-                    if (foundDestItem) {
-                        const destBefore = foundDestItem.current_budget || foundDestItem.amount || 0;
-                        const destAfter = destBefore + batchItem.amount;
-                        foundDestItem.current_budget = destAfter;
-                        updates[`projects/${destPrjId}/current_budget`] = destAfter;
-
-                        const logData = {
-                            transfer_no: transferNo,
-                            batch_no: 2,
-                            seq_no: transferNo,
-                            timestamp: new Date().toISOString(),
-                            date: batchItem.date,
-                            source: { id: sourcePrjId, project_name: foundSourceItem.project_name, plan: foundSourceItem.plan, job: foundSourceItem.job, budget_before: beforeBal, budget_after: afterBal },
-                            dest: { id: destPrjId, project_name: foundDestItem.project_name, plan: foundDestItem.plan, job: foundDestItem.job, budget_before: destBefore, budget_after: destAfter },
-                            amount: batchItem.amount,
-                            is_new_item: false
-                        };
-                        transferLogsList.push({ firebaseKey, ...logData });
-                        updates[`transfer_history/${firebaseKey}`] = logData;
-
-                    } else {
-                        const newId = `PRJ-2570-IMP-${Math.floor(1000 + Math.random() * 9000)}`;
-                        const newItemData = {
-                            id: newId,
-                            project_name: batchItem.dest.project_name,
-                            plan: batchItem.dest.plan,
-                            job: batchItem.dest.job,
-                            budget_group: batchItem.dest.budget_group,
-                            initial_budget: 0,
-                            current_budget: batchItem.amount,
-                            is_new_item: true,
-                            parent_source_id: sourcePrjId,
-                            note: batchItem.note
-                        };
-                        allProjects[newId] = newItemData;
-                        updates[`projects/${newId}`] = newItemData;
-
-                        const logData = {
-                            transfer_no: transferNo,
-                            batch_no: 2,
-                            seq_no: transferNo,
-                            timestamp: new Date().toISOString(),
-                            date: batchItem.date,
-                            source: { id: sourcePrjId, project_name: foundSourceItem.project_name, plan: foundSourceItem.plan, job: foundSourceItem.job, budget_before: beforeBal, budget_after: afterBal },
-                            dest: { id: newId, project_name: batchItem.dest.project_name, plan: batchItem.dest.plan, job: batchItem.dest.job, budget_before: 0, budget_after: batchItem.amount },
-                            amount: batchItem.amount,
-                            is_new_item: true
-                        };
-                        transferLogsList.push({ firebaseKey, ...logData });
-                        updates[`transfer_history/${firebaseKey}`] = logData;
-                    }
-                }
-            });
-
-            db.ref().update(updates).then(() => {
-                closeModal('excelImportModal');
-                showToast('success', `🚀 นำเข้าและบันทึกข้อมูลการโอนจาก Excel สำเร็จ ${parsedExcelBatchData.length} รายการ!`);
-                renderSidebarTransferLogs();
-                calculateSummary(allProjects);
-                renderDynamicA4Pages(allProjects, currentSelectedPlan, currentSelectedJob, currentSelectedCategory, currentSelectedSubType);
-            }).catch(err => {
-                showToast('error', 'เกิดข้อผิดพลาดในการบันทึกข้อมูลลง Firebase: ' + err.message);
-            });
         }
     </script>
 </body>
