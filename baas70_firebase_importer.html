@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BAAS-70 Firebase Importer — ฐานข้อมูลผู้สูงอายุ อบต.ข่วงเปา (1,423 ราย)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Firebase Compat SDK v10 -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <style>
+    body { font-family: 'Prompt', sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 p-6">
+  <div class="max-w-4xl mx-auto space-y-6">
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
+        <div>
+          <h1 class="text-xl font-bold text-indigo-900">ระบบนำเข้าข้อมูลผู้สูงอายุเข้าสู่ Firebase (โปรเจกต์ BAAS-70)</h1>
+          <p class="text-sm text-slate-500">Node ปลายทาง: <code class="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-mono">/khuangpao_welfare</code> (1,423 รายการ)</p>
+        </div>
+        <span class="px-3 py-1 bg-emerald-100 text-emerald-800 text-xs font-semibold rounded-full">Ready for BAAS-70</span>
+      </div>
+
+      <!-- Step 1: Firebase Config -->
+      <div class="space-y-4">
+        <h2 class="text-sm font-bold text-slate-700 uppercase tracking-wider">1. ตั้งค่าการเชื่อมต่อ Firebase Project: BAAS-70</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Database URL (จากหน้า Realtime Database)</label>
+            <input id="dbUrl" type="text" value="https://baas-70-default-rtdb.firebaseio.com" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-indigo-500 outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Web API Key (จาก Project Settings)</label>
+            <input id="apiKey" type="password" placeholder="AIzaSy..." class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-indigo-500 outline-none" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: Load JSON File -->
+      <div class="mt-6 space-y-3">
+        <h2 class="text-sm font-bold text-slate-700 uppercase tracking-wider">2. เลือกไฟล์ข้อมูลมาตรฐาน (khuangpao_elderly_baas70_fy2570.json)</h2>
+        <input id="jsonFile" type="file" accept=".json" class="block w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
+        <div id="previewBox" class="hidden p-4 bg-slate-100 rounded-xl text-xs space-y-1"></div>
+      </div>
+
+      <!-- Step 3: Import Action -->
+      <div class="mt-6 flex items-center gap-4">
+        <button id="btnImport" disabled onclick="uploadToFirebase()" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white font-semibold rounded-xl text-sm shadow-sm transition">
+          🚀 นำเข้าข้อมูลทั้ง 1,423 รายการขึ้น Firebase
+        </button>
+        <span id="statusText" class="text-sm text-slate-500">กรุณาเลือกไฟล์ JSON ก่อนเริ่มนำเข้า</span>
+      </div>
+
+      <!-- Log Console -->
+      <div class="mt-6">
+        <label class="block text-xs font-bold text-slate-500 mb-1">บันทึกการทำงาน (Console Log)</label>
+        <pre id="logBox" class="bg-slate-900 text-emerald-400 p-4 rounded-xl text-xs h-48 overflow-y-auto font-mono">ระบบพร้อมทำงาน...</pre>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let parsedPayload = null;
+
+    function log(msg) {
+      const box = document.getElementById('logBox');
+      box.textContent += "\n[" + new Date().toLocaleTimeString('th-TH') + "] " + msg;
+      box.scrollTop = box.scrollHeight;
+    }
+
+    document.getElementById('jsonFile').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        try {
+          parsedPayload = JSON.parse(evt.target.result);
+          const meta = parsedPayload.metadata || {};
+          const preview = document.getElementById('previewBox');
+          preview.classList.remove('hidden');
+          preview.innerHTML = `
+            <p><strong>หน่วยงาน:</strong> ${meta.organization || '-'}</p>
+            <p><strong>จำนวนผู้สูงอายุทั้งหมด:</strong> ${meta.total_records || 0} ราย</p>
+            <p><strong>งบประมาณเบี้ยยังชีพรายเดือน:</strong> ${(meta.total_monthly_budget_thb || 0).toLocaleString()} บาท/เดือน</p>
+            <p><strong>กลุ่มผู้สูงอายุพิการ:</strong> ${meta.total_disabled || 0} ราย | <strong>ปรับขั้นบันไดปี 70:</strong> ${meta.total_step_up_fy70 || 0} ราย</p>
+          `;
+          document.getElementById('btnImport').disabled = false;
+          document.getElementById('statusText').textContent = "ไฟล์พร้อมสำหรับการนำเข้า";
+          log("โหลดไฟล์สำเร็จ: พบข้อมูล " + meta.total_records + " รายการ");
+        } catch (err) {
+          log("❌ ข้อผิดพลาดในการอ่านไฟล์ JSON: " + err.message);
+        }
+      };
+      reader.readAsText(file, 'UTF-8');
+    });
+
+    async function uploadToFirebase() {
+      const dbUrl = document.getElementById('dbUrl').value.trim();
+      const apiKey = document.getElementById('apiKey').value.trim();
+      if (!dbUrl || !parsedPayload) return;
+
+      try {
+        if (!firebase.apps.length) {
+          firebase.initializeApp({
+            apiKey: apiKey || "demo-key",
+            databaseURL: dbUrl,
+            projectId: "baas-70"
+          });
+        }
+        const db = firebase.database();
+        const rootRef = db.ref('khuangpao_welfare');
+
+        document.getElementById('btnImport').disabled = true;
+        log("กำลังอัปโหลด metadata และ village_summary...");
+        await rootRef.child('metadata').set(parsedPayload.metadata);
+        await rootRef.child('village_summary').set(parsedPayload.village_summary);
+
+        // Batch upload elderly_registry in chunks of 250 to ensure smooth write
+        const keys = Object.keys(parsedPayload.elderly_registry);
+        const chunkSize = 250;
+        for (let i = 0; i < keys.length; i += chunkSize) {
+          const chunkKeys = keys.slice(i, i + chunkSize);
+          const chunkObj = {};
+          chunkKeys.forEach(k => { chunkObj[k] = parsedPayload.elderly_registry[k]; });
+          await rootRef.child('elderly_registry').update(chunkObj);
+          log(`อัปโหลดแล้ว ${Math.min(i + chunkSize, keys.length)} / ${keys.length} รายการ...`);
+        }
+
+        log("✅ เสร็จสมบูรณ์! ข้อมูลทั้ง 1,423 รายการถูกบันทึกไว้ที่ /khuangpao_welfare เรียบร้อยแล้ว");
+        document.getElementById('statusText').textContent = "นำเข้าข้อมูลสำเร็จ 100%";
+      } catch (err) {
+        log("❌ เกิดข้อผิดพลาดในการเชื่อมต่อ Firebase: " + err.message);
+        document.getElementById('btnImport').disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>
